@@ -127,9 +127,3 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-
-# ignore the data directory
-data
-
-# ignore pycharm files
-.idea
