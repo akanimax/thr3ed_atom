@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import torch.utils.data as torch_data
 
-from thre3d_atom.data.loaders import PosedImagesDataset
+from thre3d_atom.data.datasets import PosedImagesDataset
 from thre3d_atom.utils.constants import NUM_COLOUR_CHANNELS, SEED
 
 
