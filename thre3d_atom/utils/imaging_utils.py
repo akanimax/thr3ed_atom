@@ -46,8 +46,8 @@ def to8b(x: np.array) -> np.array:
 
 def adjust_dynamic_range(
     data: np.array,
-    drange_in: Tuple[int, int],
-    drange_out: Tuple[int, int],
+    drange_in: Tuple[float, float],
+    drange_out: Tuple[float, float],
     slack: bool = False,
 ) -> np.array:
     """
@@ -56,9 +56,8 @@ def adjust_dynamic_range(
         data: input data array
         drange_in: data range [total_min_val, total_max_val]
         drange_out: output data range [min_val, max_val]
-        slack: whether to cut some slack in range adjustment
+        slack: whether to cut some slack in range adjustment :D
     Returns: range_adjusted_data
-
     """
     if drange_in != drange_out:
         if not slack:
