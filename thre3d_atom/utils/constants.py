@@ -9,12 +9,10 @@ INFINITY = 1e10
 
 
 # volumetric rendering keys
-EXTRA_MEAN_DISPARITY = "mean_disparity"
-EXTRA_MEDIAN_DISPARITY = "median_disparity"
-EXTRA_POINT_DENSITIES = "point_densities"
+EXTRA_DISPARITY = "disparity"
 EXTRA_ACCUMULATED_WEIGHTS = "accumulated_weight"
-EXTRA_RAW_DENSITIES = "raw_densities"
-EXTRA_DISTS = "dists"
+EXTRA_POINT_DENSITIES = "point_densities"
+EXTRA_POINT_OCCUPANCIES = "point_occupancies"
+EXTRA_SAMPLE_INTERVALS = "deltas"
 EXTRA_POINT_WEIGHTS = "point_weights"
-EXTRA_DEPTHS = "depths"
 EXTRA_POINT_DEPTHS = "point_depths"
