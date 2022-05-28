@@ -8,7 +8,7 @@ import torch.utils.data as torch_data
 from PIL import Image
 from torch import Tensor
 
-from ..data.constants import (
+from thre3d_atom.data.constants import (
     INTRINSIC,
     BOUNDS,
     HEIGHT,
@@ -18,9 +18,9 @@ from ..data.constants import (
     ROTATION,
     TRANSLATION,
 )
-from ..data.utils import get_torch_vision_image_transform
-from ..utils.imaging_utils import (
-    SceneBounds,
+from thre3d_atom.data.utils import get_torch_vision_image_transform
+from thre3d_atom.utils.imaging_utils import (
+    CameraBounds,
     CameraIntrinsics,
     CameraPose,
     adjust_dynamic_range,
@@ -76,11 +76,11 @@ class PosedImagesDataset(torch_data.Dataset):
             log.info(f"Couldn't fit all images on cpu memory")
 
     @property
-    def scene_bounds(self) -> SceneBounds:
+    def scene_bounds(self) -> CameraBounds:
         return self._scene_bounds
 
     @scene_bounds.setter
-    def scene_bounds(self, scene_bounds: SceneBounds) -> None:
+    def scene_bounds(self, scene_bounds: CameraBounds) -> None:
         # TODO: check if any specific checking code needs to be added here.
         self._scene_bounds = scene_bounds
 
@@ -143,7 +143,7 @@ class PosedImagesDataset(torch_data.Dataset):
             )
 
         # finally, also update the scene_bounds
-        self._scene_bounds = SceneBounds(
+        self._scene_bounds = CameraBounds(
             (self._scene_bounds.near / max_norm),
             (self._scene_bounds.far / max_norm),
         )
@@ -164,7 +164,7 @@ class PosedImagesDataset(torch_data.Dataset):
         return hemispherical_radius_estimate
 
     # noinspection PyArgumentList
-    def _setup_scene_bounds(self) -> SceneBounds:
+    def _setup_scene_bounds(self) -> CameraBounds:
         all_bounds = np.vstack(
             [
                 np.array(camera_param[INTRINSIC][BOUNDS]).astype(np.float32)
@@ -174,7 +174,7 @@ class PosedImagesDataset(torch_data.Dataset):
 
         near = all_bounds.min() * 1.0
         far = all_bounds.max() * 1.0
-        return SceneBounds(near, far)
+        return CameraBounds(near, far)
 
     def _setup_camera_intrinsics(self) -> CameraIntrinsics:
         all_camera_intrinsics = np.vstack(
