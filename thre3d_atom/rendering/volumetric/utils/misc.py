@@ -1,7 +1,9 @@
+from typing import Sequence
+
 import torch
 from torch import Tensor
 
-from thre3d_atom.rendering.volumetric.render_interface import Rays
+from thre3d_atom.rendering.volumetric.render_interface import Rays, RenderOut
 from thre3d_atom.utils.constants import NUM_COORD_DIMENSIONS
 from thre3d_atom.utils.imaging_utils import CameraIntrinsics, CameraPose
 
@@ -50,4 +52,38 @@ def flatten_rays(rays: Rays) -> Rays:
     return Rays(
         origins=rays.origins.reshape(-1, NUM_COORD_DIMENSIONS),
         directions=rays.directions.reshape(-1, NUM_COORD_DIMENSIONS),
+    )
+
+
+def collate_rendered_output(rendered_chunks: Sequence[RenderOut]) -> RenderOut:
+    """Defines how a sequence of rendered_chunks can be
+    collated into a render_out"""
+    # collect all the rendered_chunks into lists
+    colour, depth, extra = [], [], {}
+    for rendered_chunk in rendered_chunks:
+        colour.append(rendered_chunk.colour)
+        depth.append(rendered_chunk.depth)
+        for key, value in rendered_chunk.extra.items():
+            extra[key] = extra.get(key, []) + [value]
+
+    # combine all the tensor information
+    colour = torch.cat(colour, dim=0)
+    depth = torch.cat(depth, dim=0)
+    extra = {key: torch.cat(extra[key], dim=0) for key in extra}
+
+    # return the collated rendered_output
+    return RenderOut(colour=colour, depth=depth, extra=extra)
+
+
+def reshape_rendered_output(
+    rendered_output: RenderOut, camera_intrinsics: CameraIntrinsics
+) -> RenderOut:
+    new_shape = (camera_intrinsics.height, camera_intrinsics.width, -1)
+    return RenderOut(
+        colour=rendered_output.colour.reshape(*new_shape),
+        depth=rendered_output.depth.reshape(*new_shape),
+        extra={
+            key: value.reshape(*new_shape)
+            for key, value in rendered_output.extra.items()
+        },
     )

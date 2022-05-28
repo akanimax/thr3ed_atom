@@ -1,5 +1,5 @@
 import math
-from typing import NamedTuple, Tuple, Union, Optional
+from typing import NamedTuple, Tuple, Union, Optional, Sequence
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -179,6 +179,49 @@ def pose_spherical(
     c2w = _rotate_pitch(pitch / 180.0 * np.pi, device) @ c2w
     c2w = _rotate_yaw(yaw / 180.0 * np.pi, device) @ c2w
     return CameraPose(rotation=c2w[:3, :3], translation=c2w[:3, 3:])
+
+
+# ----------------------------------------------------------------------------------
+# Animation camera paths
+# ----------------------------------------------------------------------------------
+
+
+def get_thre360_animation_poses(
+    hemispherical_radius: float, camera_pitch: float, num_poses: int
+) -> Sequence[CameraPose]:
+    return [
+        pose_spherical(yaw, pitch, hemispherical_radius)
+        for (pitch, yaw) in zip(
+            [camera_pitch] * (num_poses - 1),
+            np.linspace(0, 360, num_poses)[:-1],
+        )
+    ]
+
+
+def get_thre360_spiral_animation_poses(
+    horizontal_radius_range: Tuple[float, float],
+    vertical_camera_height: float,
+    num_rounds: int,
+    num_poses: int,
+) -> Sequence[CameraPose]:
+    # note that we discard the final one so that video-loop looks smooth
+    horizontal_radii = np.linspace(*horizontal_radius_range, num_poses)[:-1]
+    hemispherical_radii = [
+        np.sqrt((horizontal_radius**2) + (vertical_camera_height**2))
+        for horizontal_radius in horizontal_radii
+    ]
+    yaws = np.linspace(0, 360 * num_rounds, num_poses)[:-1]
+    pitches = [
+        math.atan(horizontal_radius / vertical_camera_height) * 180 / math.pi
+        for horizontal_radius in horizontal_radii
+    ]
+
+    return [
+        pose_spherical(yaw, pitch, hemispherical_radius)
+        for (yaw, pitch, hemispherical_radius) in zip(
+            yaws, pitches, hemispherical_radii
+        )
+    ]
 
 
 # ----------------------------------------------------------------------------------

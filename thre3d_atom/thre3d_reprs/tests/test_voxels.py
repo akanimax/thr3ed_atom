@@ -6,12 +6,11 @@ import torch
 from tqdm import tqdm
 
 from thre3d_atom.rendering.volumetric.utils.misc import cast_rays, flatten_rays
-from thre3d_atom.reprs.renderers import (
+from thre3d_atom.thre3d_reprs.renderers import (
     render_sh_voxel_grid,
-    ProbingConfig,
-    AccumulationConfig,
+    SHVoxGridRenderConfig,
 )
-from thre3d_atom.reprs.voxels import (
+from thre3d_atom.thre3d_reprs.voxels import (
     VoxelGrid,
     VoxelSize,
 )
@@ -49,10 +48,11 @@ def _plot_all_cube_sides(
             rendered_output = render_sh_voxel_grid(
                 voxel_grid=voxel_grid,
                 rays=flatten_rays(rays),
-                probing_config=ProbingConfig(
-                    num_samples_per_ray=num_samples_per_ray, camera_bounds=camera_bounds
+                render_config=SHVoxGridRenderConfig(
+                    num_samples_per_ray=num_samples_per_ray,
+                    camera_bounds=camera_bounds,
+                    white_bkgd=True,
                 ),
-                accumulation_confing=AccumulationConfig(white_bkgd=True),
             )
         end_time = time.perf_counter()
         render_time = (end_time - start_time) * 1000  # ms
@@ -170,11 +170,12 @@ def test_render_speed(device: torch.device) -> None:
             rendered_output = render_sh_voxel_grid(
                 voxel_grid=voxel_grid,
                 rays=flat_rays,
-                probing_config=ProbingConfig(
-                    num_samples_per_ray=num_samples_per_ray, camera_bounds=camera_bounds
+                render_config=SHVoxGridRenderConfig(
+                    num_samples_per_ray=num_samples_per_ray,
+                    camera_bounds=camera_bounds,
+                    white_bkgd=True,
                 ),
-                accumulation_confing=AccumulationConfig(white_bkgd=True),
-                parallel_chunk_size=None,
+                parallel_points_chunk_size=None,
             )
         end_time = time.perf_counter()
         render_time = (end_time - start_time) * 1000  # ms
