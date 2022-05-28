@@ -59,6 +59,7 @@ def _plot_all_cube_sides(
         render_times.append(render_time)
 
         # process the rendered output:
+        # noinspection DuplicatedCode
         colour_render = (
             rendered_output.colour.reshape(height, width, 3).detach().cpu().numpy()
         )
@@ -181,6 +182,7 @@ def test_render_speed(device: torch.device) -> None:
 
     # plot the final render for visual inspection :D
     height, width, _ = camera_intrinsics
+    # noinspection DuplicatedCode
     colour_render = (
         rendered_output.colour.reshape(height, width, 3).detach().cpu().numpy()
     )
