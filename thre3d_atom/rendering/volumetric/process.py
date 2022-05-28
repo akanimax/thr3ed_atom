@@ -1,3 +1,6 @@
+from functools import partial
+from typing import Optional
+
 import numpy as np
 import torch
 
@@ -11,6 +14,7 @@ from thre3d_atom.rendering.volumetric.utils.spherical_harmonics import (
 )
 from thre3d_atom.reprs.voxels import VoxelGrid
 from thre3d_atom.utils.constants import NUM_COLOUR_CHANNELS, INFINITY
+from thre3d_atom.utils.misc import batchify
 
 
 def process_points_with_sh_voxel_grid(
@@ -18,9 +22,8 @@ def process_points_with_sh_voxel_grid(
     rays: Rays,
     voxel_grid: VoxelGrid,
     render_diffuse: bool = False,
+    parallel_chunk_size: Optional[int] = None,
 ) -> ProcessedPointsOnRays:
-    # TODO: implement possible chunking of point-processing in case of performance hit.
-    #  Usually for these thin ones, just ray-based batchification is enough :)
     dtype, device = sampled_points.points.dtype, sampled_points.points.device
 
     # extract shape information
@@ -28,7 +31,16 @@ def process_points_with_sh_voxel_grid(
 
     # obtain interpolated features from the voxel_grid:
     flat_sampled_points = sampled_points.points.reshape(-1, num_coords)
-    interpolated_features = voxel_grid(flat_sampled_points)
+
+    # account for point/sample-based parallelization if requested
+    if parallel_chunk_size is None:
+        interpolated_features = voxel_grid(flat_sampled_points)
+    else:
+        interpolated_features = batchify(
+            voxel_grid,
+            collate_fn=partial(torch.cat, dim=0),
+            chunk_size=parallel_chunk_size,
+        )(flat_sampled_points)
 
     # unpack sh_coeffs and density features:
     sh_coeffs, raw_densities = (
@@ -55,6 +67,8 @@ def process_points_with_sh_voxel_grid(
         sh_degree = int(np.sqrt(sh_coeffs.shape[-1])) - 1
 
     # evaluate the spherical harmonics with the viewdirs
+    # TODO: parallel chunking for evaluating the SH based components. Think of a solution sometime
+    #  to handle the case of multiple sequence inputs. Or just change the evaluate_spherical_harmonics function
     raw_radiance = evaluate_spherical_harmonics(
         degree=sh_degree,
         sh_coeffs=sh_coeffs,

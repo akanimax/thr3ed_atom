@@ -25,10 +25,7 @@ def density2occupancy_pb(densities: Tensor, deltas: Tensor) -> Tensor:
     """computes occupancy values from density values in the range [0, inf).
     The occupancy (being a probability) is always strictly between [0, 1].
     This function is physically based, and can be derived from Lambert's law"""
-    # note the addition of ZERO_PLUS below. It is done for the case when density is 0.0
-    # especially in case of ReLU-Fields ;), where in spite of delta being inf (far bound),
-    # the product evaluates to 0.0 and causes nan-issues.
-    return 1.0 - torch.exp((-(densities + ZERO_PLUS)) * deltas)
+    return 1.0 - torch.exp(-(densities * deltas))
 
 
 def accumulate_radiance_density_on_rays(
@@ -72,16 +69,16 @@ def accumulate_radiance_density_on_rays(
     # accumulate the predicted radiance values of the samples using the computed alphas
     colour = radiance_hdr_tone_map(raw_radiance)
     # dims below: [N, NUM_COLOUR_CHANNELS]
-    colour_render = torch.sum(weights[..., None] * colour, dim=-2)
+    colour_render = torch.sum(colour * weights[..., None], dim=-2)
 
     # sum of weights along each ray, should ideally be 1.0 everywhere
-    acc_render = torch.sum(weights, dim=-1)
+    acc_render = torch.sum(weights, dim=-1, keepdim=True)
 
     if white_bkgd:
         # add a white background if requested. Please note the ** 2, which
         # makes the background radiance equal to the background alpha
         # preventing some light leaking artifacts in the optimized models
-        colour_render = colour_render + ((1 - acc_render[..., None]) ** 2)
+        colour_render = colour_render + ((1 - acc_render) ** 2)
 
     # compute depth_render and disparity_render (inverse depth)
     depth_render = (processed_points.depths * weights).sum(dim=-1, keepdims=True)

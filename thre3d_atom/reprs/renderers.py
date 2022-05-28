@@ -1,8 +1,9 @@
 from functools import partial
-from typing import NamedTuple, Callable
+from typing import NamedTuple, Callable, Optional
 
 import torch
 from torch import Tensor
+from torch.nn import Module
 
 from thre3d_atom.rendering.volumetric.accumulate import (
     density2occupancy_pb,
@@ -17,6 +18,10 @@ from thre3d_atom.rendering.volumetric.sample import (
 from thre3d_atom.reprs.voxels import VoxelGrid
 from thre3d_atom.utils.imaging_utils import CameraBounds
 
+# All the rendering procedures below follow this functional type
+# The Optional[int] is for possible sample-based-parallel processing
+RenderProcedure = Callable[[Module, Rays, Optional[int]], RenderOut]
+
 
 class ProbingConfig(NamedTuple):
     num_samples_per_ray: int
@@ -28,7 +33,7 @@ class ProbingConfig(NamedTuple):
 class AccumulationConfig(NamedTuple):
     density2occupancy: Callable[[Tensor, Tensor], Tensor] = density2occupancy_pb
     radiance_hdr_tone_map: Callable[[Tensor], Tensor] = torch.sigmoid
-    density_noise_std: float = 0.0
+    stochastic_density_noise_std: float = 0.0
     white_bkgd: bool = False
 
 
@@ -38,6 +43,7 @@ def render_sh_voxel_grid(
     probing_config: ProbingConfig,
     accumulation_confing: AccumulationConfig,
     render_diffuse: bool = False,
+    parallel_chunk_size: Optional[int] = None,
 ) -> RenderOut:
     """
     renders an SH-based voxel grid
@@ -47,6 +53,7 @@ def render_sh_voxel_grid(
         probing_config: configuration required for probing the 3D volume
         accumulation_confing: configuration required for accumulating the probed radiance and density
         render_diffuse: whether to render the diffuse version of the SH-based voxel grid
+        parallel_chunk_size: size of each chunk, in case sample/point based parallel processing is required
     Returns: rendered output per ray (RenderOut) :)
     """
     # select the sampler function based on whether optimized sampling is requested:
@@ -66,11 +73,12 @@ def render_sh_voxel_grid(
         process_points_with_sh_voxel_grid,
         voxel_grid=voxel_grid,
         render_diffuse=render_diffuse,
+        parallel_chunk_size=parallel_chunk_size,
     )
     # finally, prepare the accumulator_function
     accumulator_function = partial(
         accumulate_radiance_density_on_rays,
-        stochastic_density_noise_std=accumulation_confing.density_noise_std,
+        stochastic_density_noise_std=accumulation_confing.stochastic_density_noise_std,
         density2occupancy=accumulation_confing.density2occupancy,
         radiance_hdr_tone_map=accumulation_confing.radiance_hdr_tone_map,
         white_bkgd=accumulation_confing.white_bkgd,

@@ -1,5 +1,5 @@
 import math
-from typing import NamedTuple, Tuple, Union
+from typing import NamedTuple, Tuple, Union, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -93,14 +93,23 @@ def get_2d_coordinates(
 # ----------------------------------------------------------------------------------
 
 
-def postprocess_disparity_map(disparity_map: np.array) -> np.array:
-    disparity_map = adjust_dynamic_range(
-        disparity_map,
-        drange_in=(disparity_map.min(), disparity_map.max()),
-        drange_out=(0, 1),
+def postprocess_depth_map(
+    depth_map: np.array, camera_bounds: Optional[CameraBounds] = None
+) -> np.array:
+    if camera_bounds is None:
+        depth_min, depth_max = depth_map.min(), depth_map.max()
+    else:
+        depth_min, depth_max = 0.0, camera_bounds.far
+
+    # squeeze the depth_map's last dimension if it exists
+    if len(depth_map.shape) == 3 and depth_map.shape[-1] == 1:
+        depth_map = np.squeeze(depth_map, axis=-1)
+
+    depth_map = adjust_dynamic_range(
+        depth_map, drange_in=(depth_min, depth_max), drange_out=(0, 1), slack=False
     )
     colour_map = plt.get_cmap("turbo", lut=1024)
-    return to8b(colour_map(disparity_map))[..., :NUM_COLOUR_CHANNELS]
+    return to8b(colour_map(depth_map))[..., :NUM_COLOUR_CHANNELS]
 
 
 # ----------------------------------------------------------------------------------
