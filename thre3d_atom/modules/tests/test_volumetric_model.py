@@ -41,7 +41,7 @@ def get_default_volumetric_model(
     voxel_grid = VoxelGrid(
         densities=densities,
         features=features,
-        voxel_size=VoxelSize(2.0 / 128, 2.0 / 128, 2.0 / 128),
+        voxel_size=VoxelSize(2.0 / grid_size, 2.0 / grid_size, 2.0 / grid_size),
         density_preactivation=torch.nn.Identity(),
         density_postactivation=torch.nn.ReLU()
     )

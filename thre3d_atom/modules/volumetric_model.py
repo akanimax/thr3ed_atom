@@ -33,8 +33,24 @@ class VolumetricModel:
         self._device = device
 
     @property
+    def thre3d_repr(self) -> Module:
+        return self._thre3d_repr
+
+    @thre3d_repr.setter
+    def thre3d_repr(self, thre3d_repr: Module) -> None:
+        self._thre3d_repr = thre3d_repr
+
+    @property
+    def render_procedure(self) -> RenderProcedure:
+        return self._render_procedure
+
+    @property
     def render_config(self) -> RenderConfig:
         return self._render_config
+
+    @property
+    def device(self) -> torch.device:
+        return self._device
 
     @staticmethod
     def _update_render_config(
@@ -53,7 +69,7 @@ class VolumetricModel:
 
         return updated_render_config
 
-    def _render_rays(
+    def render_rays(
         self, rays: Rays, parallel_points_chunk_size: Optional[int] = None, **kwargs
     ) -> RenderOut:
         """
@@ -61,6 +77,7 @@ class VolumetricModel:
         procedure and render config ``differentiably''
         Args:
             rays: The rays to be rendered :)
+            parallel_points_chunk_size: used for point-based parallelism
             **kwargs: any configuration parameters if required to be overridden
         Returns:
         """
@@ -113,7 +130,7 @@ class VolumetricModel:
             for chunk_index in progress_bar(
                 range(0, len(flat_rays), parallel_rays_chunk_size)
             ):
-                rendered_chunk = self._render_rays(
+                rendered_chunk = self.render_rays(
                     flat_rays[chunk_index : chunk_index + parallel_rays_chunk_size],
                     parallel_points_chunk_size,
                     **kwargs,

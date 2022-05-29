@@ -55,7 +55,7 @@ class PosedImagesDataset(torch_data.Dataset):
 
         # initialize the state of the object
         self._downsample_factor = downsample_factor
-        self._scene_bounds = self._setup_scene_bounds()
+        self._camera_bounds = self._setup_camera_bounds()
         self._camera_intrinsics = self._setup_camera_intrinsics()
         self._image_transform = get_torch_vision_image_transform(
             new_size=(self._camera_intrinsics.height, self._camera_intrinsics.width)
@@ -76,13 +76,13 @@ class PosedImagesDataset(torch_data.Dataset):
             log.info(f"Couldn't fit all images on cpu memory")
 
     @property
-    def scene_bounds(self) -> CameraBounds:
-        return self._scene_bounds
+    def camera_bounds(self) -> CameraBounds:
+        return self._camera_bounds
 
-    @scene_bounds.setter
-    def scene_bounds(self, scene_bounds: CameraBounds) -> None:
+    @camera_bounds.setter
+    def camera_bounds(self, camera_bounds: CameraBounds) -> None:
         # TODO: check if any specific checking code needs to be added here.
-        self._scene_bounds = scene_bounds
+        self._camera_bounds = camera_bounds
 
     @property
     def camera_intrinsics(self) -> CameraIntrinsics:
@@ -143,9 +143,9 @@ class PosedImagesDataset(torch_data.Dataset):
             )
 
         # finally, also update the scene_bounds
-        self._scene_bounds = CameraBounds(
-            (self._scene_bounds.near / max_norm),
-            (self._scene_bounds.far / max_norm),
+        self._camera_bounds = CameraBounds(
+            (self._camera_bounds.near / max_norm),
+            (self._camera_bounds.far / max_norm),
         )
 
     def get_hemispherical_radius_estimate(self) -> float:
@@ -164,7 +164,7 @@ class PosedImagesDataset(torch_data.Dataset):
         return hemispherical_radius_estimate
 
     # noinspection PyArgumentList
-    def _setup_scene_bounds(self) -> CameraBounds:
+    def _setup_camera_bounds(self) -> CameraBounds:
         all_bounds = np.vstack(
             [
                 np.array(camera_param[INTRINSIC][BOUNDS]).astype(np.float32)
@@ -172,8 +172,8 @@ class PosedImagesDataset(torch_data.Dataset):
             ]
         )
 
-        near = all_bounds.min() * 1.0
-        far = all_bounds.max() * 1.0
+        near = all_bounds.min() * 0.9
+        far = all_bounds.max() * 1.1
         return CameraBounds(near, far)
 
     def _setup_camera_intrinsics(self) -> CameraIntrinsics:

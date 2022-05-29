@@ -1,4 +1,6 @@
-from typing import Callable, Sequence, Any, Optional
+from typing import Callable, Sequence, Any, Optional, Tuple, List
+
+import numpy as np
 from tqdm import tqdm
 
 
@@ -28,3 +30,18 @@ def batchify(
         return collate_fn(processed_inputs_batches)
 
     return batchified_processor_fn
+
+
+def compute_thre3d_grid_sizes(
+    final_required_resolution: Tuple[int, int, int],
+    num_stages: int,
+    scale_factor: float,
+) -> List[Tuple[int, int, int]]:
+    x, y, z = final_required_resolution
+    grid_sizes = [(x, y, z)]
+    for _ in range(num_stages - 1):
+        x = int(np.ceil((1 / scale_factor) * x))
+        y = int(np.ceil((1 / scale_factor) * y))
+        z = int(np.ceil((1 / scale_factor) * z))
+        grid_sizes.insert(0, (x, y, z))
+    return grid_sizes

@@ -1,10 +1,11 @@
 """ manually written sort-of-low-level implementation for voxel-based 3D volumetric representations """
+import copy
 from typing import Tuple, NamedTuple, Optional, Callable
 
 import torch
 from torch import Tensor
 from torch.nn import Module
-from torch.nn.functional import grid_sample
+from torch.nn.functional import grid_sample, interpolate
 
 from thre3d_atom.utils.imaging_utils import adjust_dynamic_range
 
@@ -144,6 +145,18 @@ class VoxelGrid(Module):
     @property
     def aabb(self) -> AxisAlignedBoundingBox:
         return self._aabb
+
+    @property
+    def grid_dims(self) -> Tuple[int, int, int]:
+        return self.width_x, self.depth_y, self.height_z
+
+    @property
+    def voxel_size(self) -> VoxelSize:
+        return self._voxel_size
+
+    @voxel_size.setter
+    def voxel_size(self, voxel_size: VoxelSize) -> None:
+        self._voxel_size = voxel_size
 
     def _setup_bounding_box_planes(self) -> AxisAlignedBoundingBox:
         # compute half grid dimensions
@@ -288,3 +301,43 @@ class VoxelGrid(Module):
 
         # return a unified tensor containing interpolated features and densities
         return torch.cat([interpolated_features, interpolated_densities], dim=-1)
+
+
+def scale_voxel_grid_with_required_output_size(
+    voxel_grid: VoxelGrid, output_size: Tuple[int, int, int], mode: str = "trilinear"
+) -> VoxelGrid:
+
+    # extract relevant information from the original input voxel_grid:
+    og_unified_feature_tensor = torch.cat(
+        [voxel_grid.features, voxel_grid.densities], dim=-1
+    )
+    og_voxel_size = voxel_grid.voxel_size
+
+    # compute the new features using pytorch's interpolate function
+    new_features = interpolate(
+        og_unified_feature_tensor.permute(3, 0, 1, 2)[None, ...],
+        size=output_size,
+        mode=mode,
+        align_corners=False,  # never use align_corners=True :D
+        recompute_scale_factor=False,  # this needs to be set for some reason, I can't remember :D
+    )[0]
+    new_features = new_features.permute(1, 2, 3, 0)
+
+    # a paranoid check that the interpolated features have the exact same output_size as required
+    assert new_features.shape[:-1] == output_size
+
+    # new voxel size is also similarly scaled
+    new_voxel_size = VoxelSize(
+        (og_voxel_size.x_size * voxel_grid.width_x) / output_size[0],
+        (og_voxel_size.y_size * voxel_grid.depth_y) / output_size[1],
+        (og_voxel_size.z_size * voxel_grid.height_z) / output_size[2],
+    )
+
+    # create a new voxel_grid by cloning the input voxel_grid and update the newly scaled properties
+    new_voxel_grid = copy.deepcopy(voxel_grid)
+    new_voxel_grid.densities = new_features[..., -1:]
+    new_voxel_grid.features = new_features[..., :-1]
+    new_voxel_grid.voxel_size = new_voxel_size
+
+    # noinspection PyProtectedMember
+    return new_voxel_grid

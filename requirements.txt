@@ -9,3 +9,4 @@ PyQt5-sip==12.8.1
 pytest==7.1.2
 imageio==2.19.2
 imageio-ffmpeg==0.4.7
+lpips==0.1.4

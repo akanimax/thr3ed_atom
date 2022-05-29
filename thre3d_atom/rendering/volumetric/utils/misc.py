@@ -1,4 +1,4 @@
-from typing import Sequence
+from typing import Sequence, Tuple
 
 import torch
 from torch import Tensor
@@ -53,6 +53,65 @@ def flatten_rays(rays: Rays) -> Rays:
         origins=rays.origins.reshape(-1, NUM_COORD_DIMENSIONS),
         directions=rays.directions.reshape(-1, NUM_COORD_DIMENSIONS),
     )
+
+
+def collate_rays(rays_list: Sequence[Rays]) -> Rays:
+    """utility method for collating rays"""
+    return Rays(
+        origins=torch.cat([rays.origins for rays in rays_list], dim=0),
+        directions=torch.cat([rays.directions for rays in rays_list], dim=0),
+    )
+
+
+def ndcize_rays(rays: Rays, camera_intrinsics: CameraIntrinsics) -> Rays:
+    """Normalized device coordinate rays.
+    Space such that the canvas is a cube with sides [-1, 1] in each axis.
+    """
+    # unpack everything
+    height, width, focal = camera_intrinsics
+    near = 1.0
+    rays_o, rays_d = rays
+
+    # Shift ray origins to near plane
+    t = -(near + rays_o[..., 2]) / rays_d[..., 2]
+    rays_o = rays_o + t[..., None] * rays_d
+
+    # Projection
+    o0 = -1.0 / (width / (2.0 * focal)) * rays_o[..., 0] / rays_o[..., 2]
+    o1 = -1.0 / (height / (2.0 * focal)) * rays_o[..., 1] / rays_o[..., 2]
+    o2 = 1.0 + 2.0 * near / rays_o[..., 2]
+
+    d0 = (
+        -1.0
+        / (width / (2.0 * focal))
+        * (rays_d[..., 0] / rays_d[..., 2] - rays_o[..., 0] / rays_o[..., 2])
+    )
+    d1 = (
+        -1.0
+        / (height / (2.0 * focal))
+        * (rays_d[..., 1] / rays_d[..., 2] - rays_o[..., 1] / rays_o[..., 2])
+    )
+    d2 = -2.0 * near / rays_o[..., 2]
+
+    rays_o = torch.stack([o0, o1, o2], -1)
+    rays_d = torch.stack([d0, d1, d2], -1)
+
+    return Rays(rays_o, rays_d)
+
+
+def sample_random_rays_and_pixels_synchronously(
+    rays: Rays,
+    pixels: Tensor,
+    sample_size: int,
+) -> Tuple[Rays, Tensor]:
+    dtype, device = pixels.dtype, pixels.device
+    permutation = torch.randperm(pixels.shape[0], dtype=dtype, device=device)
+    sampled_subset = permutation[:sample_size]
+    rays_origins, rays_directions = rays.origins, rays.directions
+    selected_rays_origins = rays_origins[sampled_subset, :]
+    selected_rays_directions = rays_directions[sampled_subset, :]
+    selected_pixels = pixels[sampled_subset, :]
+    return Rays(selected_rays_origins, selected_rays_directions), selected_pixels
 
 
 def collate_rendered_output(rendered_chunks: Sequence[RenderOut]) -> RenderOut:

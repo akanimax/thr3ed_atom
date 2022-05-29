@@ -35,10 +35,6 @@ class CameraBounds(NamedTuple):
 # ----------------------------------------------------------------------------------
 
 
-def mse2psnr(x):
-    return -10.0 * math.log(x) / math.log(10.0) if x != 0.0 else math.inf
-
-
 def to8b(x: np.array) -> np.array:
     return (255 * np.clip(x, 0, 1)).astype(np.uint8)
 
