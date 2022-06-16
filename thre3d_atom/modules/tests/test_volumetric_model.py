@@ -28,7 +28,7 @@ def get_default_volumetric_model(
     camera_bounds: CameraBounds, device: torch.device
 ) -> VolumetricModel:
     # GIVEN: The following configuration:
-    grid_size, num_samples_per_ray = 128, 256
+    grid_size, num_samples_per_ray = 16, 256
     num_samples_per_ray = 256
     white_bkgd = True
 

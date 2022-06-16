@@ -117,6 +117,8 @@ def test_trilinear_interpolation_single_cube(device: torch.device) -> None:
             dtype=torch.float32,
         ).reshape(2, 2, 2, 3),
         voxel_size=VoxelSize(2, 2, 2),
+        density_preactivation=torch.nn.Identity(),
+        density_postactivation=torch.nn.ReLU()
     )
     # fmt: on
 

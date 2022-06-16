@@ -17,6 +17,7 @@ from thre3d_atom.rendering.volumetric.utils.misc import (
     cast_rays,
     collate_rays,
     sample_random_rays_and_pixels_synchronously,
+    flatten_rays,
 )
 
 from thre3d_atom.thre3d_reprs.renderers import render_sh_voxel_grid
@@ -35,7 +36,7 @@ from thre3d_atom.visualizations.static import (
     visualize_sh_vox_grid_vol_mod_rendered_feedback,
 )
 
-TrainProcedure = Callable[[VolumetricModel, Dataset, ...], VolumetricModel]
+# TrainProcedure = Callable[[VolumetricModel, Dataset, ...], VolumetricModel]
 
 
 def train_sh_vox_grid_vol_mod_with_posed_images(
@@ -45,7 +46,7 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
     output_dir: Path,
     # optional arguments:)
     random_initializer: Callable[[Tensor], Tensor] = partial(
-        torch.nn.init.uniform_, a=-10.0, b=10.0
+        torch.nn.init.uniform_, a=-1.0, b=1.0
     ),
     test_dataset: Optional[PosedImagesDataset] = None,
     image_batch_cache_size: int = 8,
@@ -54,7 +55,7 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
     num_iterations_per_stage: int = 2000,
     scale_factor: float = 2.0,
     # learning_rate and related arguments
-    learning_rate: float = 0.03,
+    learning_rate: float = 0.3,
     lr_decay_gamma: float = 0.1,
     lr_decay_steps: int = 1000,
     stagewise_lr_decay_gamma: float = 0.9,
@@ -63,8 +64,8 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
     # various training-loop frequencies
     save_freq: int = 1000,
     testing_freq: int = 1000,
-    feedback_freq: int = 500,
-    loss_feedback_freq: int = 100,
+    feedback_freq: int = 100,
+    loss_feedback_freq: int = 10,
     # regularization option:
     apply_diffuse_render_regularization: bool = True,
     # miscellaneous options can be left untouched
@@ -130,10 +131,8 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
             mode="trilinear",
         )
         # reinitialize the scaled features and densities to remove any bias
-        # fmt: off
-        vol_mod.thre3d_repr.densities = random_initializer(vol_mod.thre3d_repr.densities)
-        vol_mod.thre3d_repr.features = random_initializer(vol_mod.thre3d_repr.features)
-        # fmt: on
+        random_initializer(vol_mod.thre3d_repr.densities)
+        random_initializer(vol_mod.thre3d_repr.features)
 
     # setup render_feedback_pose
     real_feedback_image = None
@@ -156,15 +155,19 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
         prefetch_factor=num_workers if num_workers > 0 else 2,
         persistent_workers=num_workers > 0,
     )
-    test_dl = DataLoader(
-        test_dataset,
-        batch_size=1,  # note that testing happens one image at a time
-        shuffle=False,
-        drop_last=False,
-        num_workers=num_workers,
-        pin_memory=num_workers > 0,
-        prefetch_factor=num_workers if num_workers > 0 else 2,
-        persistent_workers=num_workers > 0,
+    test_dl = (
+        DataLoader(
+            test_dataset,
+            batch_size=1,  # note that testing happens one image at a time
+            shuffle=False,
+            drop_last=False,
+            num_workers=num_workers,
+            pin_memory=num_workers > 0,
+            prefetch_factor=num_workers if num_workers > 0 else 2,
+            persistent_workers=num_workers > 0,
+        )
+        if test_dataset is not None
+        else None
     )
 
     # dataset size aka number of total pixels
@@ -262,10 +265,12 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
             # cast rays for all the loaded images:
             rays_list = []
             for pose in poses:
-                casted_rays = cast_rays(
-                    camera_intrinsics,
-                    CameraPose(rotation=pose[:, :3], translation=pose[:, 3:]),
-                    device=vol_mod.device,
+                casted_rays = flatten_rays(
+                    cast_rays(
+                        camera_intrinsics,
+                        CameraPose(rotation=pose[:, :3], translation=pose[:, 3:]),
+                        device=vol_mod.device,
+                    )
                 )
                 rays_list.append(casted_rays)
             rays = collate_rays(rays_list)
@@ -323,7 +328,7 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
 
             # rest of the code per iteration is related to saving/logging/feedback/testing
 
-            global_step = (stage * num_iterations_per_stage) + stage_iteration
+            global_step = ((stage - 1) * num_iterations_per_stage) + stage_iteration
 
             # tensorboard summaries feedback
             if (
@@ -354,13 +359,13 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
                     f"Stage: {stage} "
                     f"Global Iteration: {global_step} "
                     f"Stage Iteration: {stage_iteration} "
-                    f"specular_loss: {specular_loss_value: .3f} "
-                    f"specular_psnr: {specular_psnr_value: .3f} "
+                    f"specular_loss: {specular_loss_value.item(): .3f} "
+                    f"specular_psnr: {specular_psnr_value.item(): .3f} "
                 )
                 if apply_diffuse_render_regularization:
                     loss_info_string += (
-                        f"diffuse_loss: {diffuse_loss_value: .3f} "
-                        f"diffuse_psnr: {diffuse_psnr_value: .3f} "
+                        f"diffuse_loss: {diffuse_loss_value.item(): .3f} "
+                        f"diffuse_psnr: {diffuse_psnr_value.item(): .3f} "
                         f"total_loss: {total_loss: .3f} "
                     )
                 log.info(loss_info_string)
@@ -393,9 +398,13 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
                 )
 
             # obtain and log the test metrics
-            if not fast_debug_mode and (
-                global_step % testing_freq == 0
-                or stage_iteration == num_iterations_per_stage - 1
+            if (
+                test_dl is not None
+                and not fast_debug_mode
+                and (
+                    global_step % testing_freq == 0
+                    or stage_iteration == num_iterations_per_stage - 1
+                )
             ):
                 test_sh_vox_grid_vol_mod_with_posed_images(
                     vol_mod=vol_mod,

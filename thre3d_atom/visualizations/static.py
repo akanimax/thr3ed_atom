@@ -10,7 +10,11 @@ from matplotlib import pyplot as plt
 from thre3d_atom.data.datasets import PosedImagesDataset
 from thre3d_atom.modules.volumetric_model import VolumetricModel
 from thre3d_atom.rendering.volumetric.render_interface import RenderOut
-from thre3d_atom.rendering.volumetric.utils.misc import cast_rays, ndcize_rays
+from thre3d_atom.rendering.volumetric.utils.misc import (
+    cast_rays,
+    ndcize_rays,
+    flatten_rays,
+)
 from thre3d_atom.utils.constants import EXTRA_ACCUMULATED_WEIGHTS, NUM_COLOUR_CHANNELS
 from thre3d_atom.utils.imaging_utils import (
     CameraPose,
@@ -38,7 +42,7 @@ def visualize_camera_rays(
     fig.suptitle("Camera rays visualization")
     ax = fig.add_subplot(111, projection="3d")
     for pose in all_poses:
-        rays = cast_rays(dataset.camera_intrinsics, pose)
+        rays = flatten_rays(cast_rays(dataset.camera_intrinsics, pose))
         if do_ndcize_rays:
             rays = ndcize_rays(rays, dataset.camera_intrinsics)
 

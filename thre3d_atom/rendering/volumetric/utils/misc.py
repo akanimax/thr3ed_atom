@@ -105,7 +105,7 @@ def sample_random_rays_and_pixels_synchronously(
     sample_size: int,
 ) -> Tuple[Rays, Tensor]:
     dtype, device = pixels.dtype, pixels.device
-    permutation = torch.randperm(pixels.shape[0], dtype=dtype, device=device)
+    permutation = torch.randperm(pixels.shape[0], dtype=torch.long, device=device)
     sampled_subset = permutation[:sample_size]
     rays_origins, rays_directions = rays.origins, rays.directions
     selected_rays_origins = rays_origins[sampled_subset, :]

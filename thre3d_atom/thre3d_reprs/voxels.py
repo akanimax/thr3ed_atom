@@ -1,6 +1,6 @@
 """ manually written sort-of-low-level implementation for voxel-based 3D volumetric representations """
 import copy
-from typing import Tuple, NamedTuple, Optional, Callable
+from typing import Tuple, NamedTuple, Optional, Callable, Dict
 
 import torch
 from torch import Tensor
@@ -157,6 +157,27 @@ class VoxelGrid(Module):
     @voxel_size.setter
     def voxel_size(self, voxel_size: VoxelSize) -> None:
         self._voxel_size = voxel_size
+
+    def get_config_dict(self) -> Dict[str, any]:
+        # grid_location: Optional[VoxelGridLocation] = VoxelGridLocation(),
+        # # density activations:
+        # density_preactivation: Callable[[Tensor], Tensor] = torch.abs,
+        # density_postactivation: Callable[[Tensor], Tensor] = torch.nn.Identity(),
+        # # feature activations:
+        # feature_preactivation: Callable[[Tensor], Tensor] = torch.nn.Identity(),
+        # feature_postactivation: Callable[[Tensor], Tensor] = torch.nn.Identity(),
+        # # radiance function / transfer function:
+        # radiance_transfer_function: Callable[[Tensor, Tensor], Tensor] = None,
+        # tunable: bool = False,
+        return {
+            "grid_location": self._grid_location,
+            "density_preactivation": self._density_preactivation,
+            "density_postactivation": self._density_postactivation,
+            "feature_preactivation": self._feature_preactivation,
+            "feature_postactivation": self._feature_postactivation,
+            "radiance_transfer_function": self._radiance_transfer_function,
+            "tunable": self._tunable,
+        }
 
     def _setup_bounding_box_planes(self) -> AxisAlignedBoundingBox:
         # compute half grid dimensions
@@ -334,10 +355,12 @@ def scale_voxel_grid_with_required_output_size(
     )
 
     # create a new voxel_grid by cloning the input voxel_grid and update the newly scaled properties
-    new_voxel_grid = copy.deepcopy(voxel_grid)
-    new_voxel_grid.densities = new_features[..., -1:]
-    new_voxel_grid.features = new_features[..., :-1]
-    new_voxel_grid.voxel_size = new_voxel_size
+    new_voxel_grid = VoxelGrid(
+        densities=new_features[..., -1:],
+        features=new_features[..., :-1],
+        voxel_size=new_voxel_size,
+        **voxel_grid.get_config_dict(),
+    )
 
     # noinspection PyProtectedMember
     return new_voxel_grid
