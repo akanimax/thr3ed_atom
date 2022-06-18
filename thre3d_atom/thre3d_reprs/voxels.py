@@ -1,5 +1,4 @@
 """ manually written sort-of-low-level implementation for voxel-based 3D volumetric representations """
-import copy
 from typing import Tuple, NamedTuple, Optional, Callable, Dict
 
 import torch

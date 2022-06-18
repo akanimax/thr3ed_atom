@@ -120,6 +120,7 @@ def visualize_sh_vox_grid_vol_mod_rendered_feedback(
     feedback_logs_dir: Path,
     training_time: Optional[float] = None,
     log_diffuse_rendered_version: bool = True,
+    use_optimized_sampling_mode: bool = False,
     verbose_rendering: bool = True,
 ) -> None:
     # render images
@@ -131,7 +132,7 @@ def visualize_sh_vox_grid_vol_mod_rendered_feedback(
         parallel_rays_chunk_size=parallel_rays_chunk_size,
         gpu_render=True,
         verbose=verbose_rendering,
-        optimized_sampling=True,
+        optimized_sampling=use_optimized_sampling_mode,
     )
     specular_feedback_image = _process_rendered_output_for_feedback_log(
         specular_rendered_output, vol_mod.render_config.camera_bounds, training_time
@@ -148,7 +149,7 @@ def visualize_sh_vox_grid_vol_mod_rendered_feedback(
             parallel_rays_chunk_size=parallel_rays_chunk_size,
             gpu_render=True,
             verbose=verbose_rendering,
-            optimized_sampling=True,
+            optimized_sampling=use_optimized_sampling_mode,
             render_diffuse=True,
         )
         diffuse_feedback_image = _process_rendered_output_for_feedback_log(

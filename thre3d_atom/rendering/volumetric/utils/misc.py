@@ -29,6 +29,7 @@ def cast_rays(
     x_coords, y_coords = torch.meshgrid(
         torch.linspace(0.5, width - 0.5, width, dtype=torch.float32, device=device),
         torch.linspace(0.5, height - 0.5, height, dtype=torch.float32, device=device),
+        indexing="ij",  # this is done to suppress the warning. Stupid PyTorch :sweat_smile:!
     )
     # not that this transpose is needed because torch's meshgrid is in ij format
     # instead of numpy's xy format

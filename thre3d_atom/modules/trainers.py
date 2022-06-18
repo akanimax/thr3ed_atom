@@ -6,7 +6,7 @@ import imageio
 import torch
 from torch import Tensor
 from torch.nn.functional import l1_loss, mse_loss
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from thre3d_atom.data.datasets import PosedImagesDataset
@@ -19,7 +19,6 @@ from thre3d_atom.rendering.volumetric.utils.misc import (
     sample_random_rays_and_pixels_synchronously,
     flatten_rays,
 )
-
 from thre3d_atom.thre3d_reprs.renderers import render_sh_voxel_grid
 from thre3d_atom.thre3d_reprs.voxels import (
     VoxelGrid,
@@ -35,6 +34,7 @@ from thre3d_atom.visualizations.static import (
     visualize_camera_rays,
     visualize_sh_vox_grid_vol_mod_rendered_feedback,
 )
+
 
 # TrainProcedure = Callable[[VolumetricModel, Dataset, ...], VolumetricModel]
 
@@ -139,10 +139,10 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
     if render_feedback_pose is None:
         feedback_dataset = test_dataset if test_dataset is not None else train_dataset
         render_feedback_pose = CameraPose(
-            rotation=feedback_dataset[0][-1][:, :3].numpy(),
-            translation=feedback_dataset[0][-1][:, 3:].numpy(),
+            rotation=feedback_dataset[0][-1][:, :3].cpu().numpy(),
+            translation=feedback_dataset[0][-1][:, 3:].cpu().numpy(),
         )
-        real_feedback_image = feedback_dataset[0][0].permute(1, 2, 0).numpy()
+        real_feedback_image = feedback_dataset[0][0].permute(1, 2, 0).cpu().numpy()
 
     # setup the data_loader(s):
     train_dl = DataLoader(
@@ -223,7 +223,6 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
     # -----------------------------------------------------------------------------------------
     for stage in range(1, num_stages + 1):
         # setup volumetric_model's optimizer
-        log.info("Using new_modified learning rate schedule ...")
         current_stage_lr = learning_rate * (stagewise_lr_decay_gamma ** (stage - 1))
         optimizeable_parameters = vol_mod.thre3d_repr.parameters()
         assert (
@@ -252,14 +251,13 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
         # -------------------------------------------------------------------------------------
         #  Single Stage Training Loop                                                         |
         # -------------------------------------------------------------------------------------
-        for stage_iteration in range(num_iterations_per_stage):
+        for stage_iteration in range(1, num_iterations_per_stage + 1):
             # ---------------------------------------------------------------------------------
             #  Main Operations Performed Per Iteration                                        |
             # ---------------------------------------------------------------------------------
             # sample a batch rays and pixels for a single iteration
             # load a batch of images and poses (These could already be cached on GPU)
             # please check the `data.datasets` module
-            # TODO: setup GPU caching of the images and poses in the dataset
             images, poses = next(infinite_train_dl)
 
             # cast rays for all the loaded images:
@@ -333,8 +331,8 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
             # tensorboard summaries feedback
             if (
                 global_step % loss_feedback_freq == 0
-                or stage_iteration == 0
-                or stage_iteration == num_iterations_per_stage - 1
+                or stage_iteration == 1
+                or stage_iteration == num_iterations_per_stage
             ):
                 for summary_name, summary_value in (
                     ("specular_loss", specular_loss_value),
@@ -352,8 +350,8 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
             # console loss feedback
             if (
                 global_step % loss_feedback_freq == 0
-                or stage_iteration == 0
-                or stage_iteration == num_iterations_per_stage - 1
+                or stage_iteration == 1
+                or stage_iteration == num_iterations_per_stage
             ):
                 loss_info_string = (
                     f"Stage: {stage} "
@@ -381,7 +379,7 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
             if (
                 global_step % feedback_freq == 0
                 or stage_iteration == 1
-                or stage_iteration == num_iterations_per_stage - 1
+                or stage_iteration == num_iterations_per_stage
             ):
                 # TODO: implement the training time calculation mechanism for the feedback
                 #  and console logging
@@ -403,7 +401,7 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
                 and not fast_debug_mode
                 and (
                     global_step % testing_freq == 0
-                    or stage_iteration == num_iterations_per_stage - 1
+                    or stage_iteration == num_iterations_per_stage
                 )
             ):
                 test_sh_vox_grid_vol_mod_with_posed_images(

@@ -79,6 +79,7 @@ def get_2d_coordinates(
         torch.meshgrid(
             torch.linspace(range_a, range_b, height, dtype=torch.float32),
             torch.linspace(range_a, range_b, width, dtype=torch.float32),
+            indexing="ij",
         ),
         dim=-1,
     )

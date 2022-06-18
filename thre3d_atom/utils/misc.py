@@ -1,6 +1,9 @@
+from pathlib import Path
 from typing import Callable, Sequence, Any, Optional, Tuple, List
 
 import numpy as np
+import yaml
+from easydict import EasyDict
 from tqdm import tqdm
 
 
@@ -45,3 +48,11 @@ def compute_thre3d_grid_sizes(
         z = int(np.ceil((1 / scale_factor) * z))
         grid_sizes.insert(0, (x, y, z))
     return grid_sizes
+
+
+def log_config_to_disk(
+    args: EasyDict, output_dir: Path, config_file_name: str = "config.yml"
+) -> None:
+    output_dir.mkdir(exist_ok=True, parents=True)
+    with open(str(output_dir / config_file_name), "w") as outfile:
+        yaml.dump(dict(args), outfile, default_flow_style=False)
