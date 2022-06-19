@@ -107,6 +107,10 @@ class PosedImagesDataset(torch_data.Dataset):
         # -----------------------------------------------------------------------------------------
 
     @property
+    def cached_data_mode(self) -> bool:
+        return self._cached_data_mode
+
+    @property
     def camera_bounds(self) -> CameraBounds:
         return self._camera_bounds
 
@@ -307,7 +311,7 @@ class PosedImagesDataset(torch_data.Dataset):
 
         # change the dynamic range of the image values if they are different from the pytorch's default range
         # (0.0, 1.0)
-        default_image_range = image.min().item(), image.max().item()
+        default_image_range = (0.0, 1.0)
         if self._image_data_range != default_image_range:
             image = adjust_dynamic_range(
                 image, drange_in=default_image_range, drange_out=self._image_data_range

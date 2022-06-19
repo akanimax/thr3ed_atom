@@ -55,17 +55,17 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
     num_iterations_per_stage: int = 2000,
     scale_factor: float = 2.0,
     # learning_rate and related arguments
-    learning_rate: float = 0.3,
-    lr_decay_gamma: float = 0.1,
-    lr_decay_steps: int = 1000,
+    learning_rate: float = 0.03,
+    lr_decay_gamma_per_stage: float = 0.1,
+    lr_decay_steps_per_stage: int = 1000,
     stagewise_lr_decay_gamma: float = 0.9,
     # option to have a specific feedback_pose_for_visual feedback rendering
     render_feedback_pose: Optional[CameraPose] = None,
     # various training-loop frequencies
     save_freq: int = 1000,
-    testing_freq: int = 1000,
+    test_freq: int = 1000,
     feedback_freq: int = 100,
-    loss_feedback_freq: int = 10,
+    summary_freq: int = 10,
     # regularization option:
     apply_diffuse_render_regularization: bool = True,
     # miscellaneous options can be left untouched
@@ -91,14 +91,14 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
         num_iterations_per_stage: iterations performed per stage
         scale_factor: factor by which the grid is up-scaled after each stage
         learning_rate: learning rate used for differential optimization
-        lr_decay_gamma: value of gamma for learning rate-decay in a single stage
-        lr_decay_steps: steps after which exponential learning rate decay is kicked in
+        lr_decay_gamma_per_stage: value of gamma for learning rate-decay in a single stage
+        lr_decay_steps_per_stage: steps after which exponential learning rate decay is kicked in
         stagewise_lr_decay_gamma: gamma reduction of learning rate after each stage
         render_feedback_pose: optional feedback pose used for generating the rendered feedback
         save_freq: number of iterations after which checkpoints are saved
-        testing_freq: number of iterations after which testing scores are computed
+        test_freq: number of iterations after which testing scores are computed
         feedback_freq: number of iterations after which feedback is generated
-        loss_feedback_freq: number of iterations after which current loss is logged to console
+        summary_freq: number of iterations after which current loss is logged to console
         apply_diffuse_render_regularization: whether to apply the diffuse render regularization
         num_workers: num_workers used by pytorch dataloader
         verbose_rendering: bool to control whether to show verbose details while generating rendered feedback
@@ -145,15 +145,22 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
         real_feedback_image = feedback_dataset[0][0].permute(1, 2, 0).cpu().numpy()
 
     # setup the data_loader(s):
+    # There are a bunch of fancy CPU-GPU configuration being done here.
+    # Nothing too hard to understand, just refer the documentation page of PyTorch's
+    # dataloader -> https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader
+    # And, read the book titled "CUDA_BY_EXAMPLE" https://developer.nvidia.com/cuda-example
+    # Takes not long, just about 1-2 weeks :). But worth it :+1: :+1: :smile:!
     train_dl = DataLoader(
         train_dataset,
         batch_size=image_batch_cache_size,
         shuffle=True,
         drop_last=True,
-        num_workers=num_workers,
-        pin_memory=num_workers > 0,
-        prefetch_factor=num_workers if num_workers > 0 else 2,
-        persistent_workers=num_workers > 0,
+        num_workers=0 if train_dataset.cached_data_mode else num_workers,
+        pin_memory=not train_dataset.cached_data_mode and num_workers > 0,
+        prefetch_factor=num_workers
+        if not train_dataset.cached_data_mode and num_workers > 0
+        else 2,
+        persistent_workers=not train_dataset.cached_data_mode and num_workers > 0,
     )
     test_dl = (
         DataLoader(
@@ -161,10 +168,12 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
             batch_size=1,  # note that testing happens one image at a time
             shuffle=False,
             drop_last=False,
-            num_workers=num_workers,
-            pin_memory=num_workers > 0,
-            prefetch_factor=num_workers if num_workers > 0 else 2,
-            persistent_workers=num_workers > 0,
+            num_workers=0 if test_dataset.cached_data_mode else num_workers,
+            pin_memory=not test_dataset.cached_data_mode and num_workers > 0,
+            prefetch_factor=num_workers
+            if not test_dataset.cached_data_mode and num_workers > 0
+            else 2,
+            persistent_workers=not test_dataset.cached_data_mode and num_workers > 0,
         )
         if test_dataset is not None
         else None
@@ -235,7 +244,7 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
 
         # setup learning rate schedulers for the optimizer
         lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(
-            optimizer, gamma=lr_decay_gamma
+            optimizer, gamma=lr_decay_gamma_per_stage
         )
 
         # display logs related to this training stage:
@@ -330,7 +339,7 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
 
             # tensorboard summaries feedback
             if (
-                global_step % loss_feedback_freq == 0
+                global_step % summary_freq == 0
                 or stage_iteration == 1
                 or stage_iteration == num_iterations_per_stage
             ):
@@ -349,7 +358,7 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
 
             # console loss feedback
             if (
-                global_step % loss_feedback_freq == 0
+                global_step % summary_freq == 0
                 or stage_iteration == 1
                 or stage_iteration == num_iterations_per_stage
             ):
@@ -369,7 +378,7 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
                 log.info(loss_info_string)
 
             # step the learning rate schedulers
-            if stage_iteration % lr_decay_steps == 0:
+            if stage_iteration % lr_decay_steps_per_stage == 0:
                 lr_scheduler.step()
                 new_lrs = [param_group["lr"] for param_group in optimizer.param_groups]
                 log_string = f"Adjusted learning rate | learning rates: {new_lrs} "
@@ -387,11 +396,12 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
                     vol_mod=vol_mod,
                     render_feedback_pose=render_feedback_pose,
                     camera_intrinsics=camera_intrinsics,
-                    parallel_rays_chunk_size=ray_batch_size,
                     global_step=global_step,
                     feedback_logs_dir=render_dir,
+                    parallel_rays_chunk_size=vol_mod.render_config.parallel_rays_chunk_size,
                     training_time=None,
                     log_diffuse_rendered_version=True,
+                    overridden_num_samples_per_ray=vol_mod.render_config.render_num_samples_per_ray,
                     verbose_rendering=verbose_rendering,
                 )
 
@@ -400,7 +410,7 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
                 test_dl is not None
                 and not fast_debug_mode
                 and (
-                    global_step % testing_freq == 0
+                    global_step % test_freq == 0
                     or stage_iteration == num_iterations_per_stage
                 )
             ):

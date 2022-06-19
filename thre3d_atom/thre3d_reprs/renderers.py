@@ -36,11 +36,13 @@ class SHVoxGridRenderConfig:
     # AccumulationConfig
     density2occupancy: Callable[[Tensor, Tensor], Tensor] = density2occupancy_pb
     radiance_hdr_tone_map: Callable[[Tensor], Tensor] = torch.sigmoid
-    stochastic_density_noise_std: float = 0.0
+    stochastic_density_noise_std: float = 0.0  # used by NeRF not by us :)
     white_bkgd: bool = False
 
-    # Render mode
+    # Misc Render mode config
     render_diffuse: bool = False
+    render_num_samples_per_ray: int = 512
+    parallel_rays_chunk_size: int = 32768
 
 
 def render_sh_voxel_grid(

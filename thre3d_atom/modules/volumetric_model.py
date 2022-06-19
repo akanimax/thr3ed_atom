@@ -90,7 +90,7 @@ class VolumetricModel:
         self,
         camera_pose: CameraPose,
         camera_intrinsics: CameraIntrinsics,
-        parallel_rays_chunk_size: Optional[int] = 8192,
+        parallel_rays_chunk_size: Optional[int] = 32768,
         parallel_points_chunk_size: Optional[int] = None,
         gpu_render: bool = True,
         verbose: bool = False,

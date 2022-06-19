@@ -115,14 +115,23 @@ def visualize_sh_vox_grid_vol_mod_rendered_feedback(
     vol_mod: VolumetricModel,
     render_feedback_pose: CameraPose,
     camera_intrinsics: CameraIntrinsics,
-    parallel_rays_chunk_size: int,
     global_step: int,
     feedback_logs_dir: Path,
+    parallel_rays_chunk_size: int = 32768,
     training_time: Optional[float] = None,
     log_diffuse_rendered_version: bool = True,
     use_optimized_sampling_mode: bool = False,
+    overridden_num_samples_per_ray: Optional[int] = None,
     verbose_rendering: bool = True,
 ) -> None:
+    # Bump up the num_samples_per_ray to a high-value for reducing MC noise
+    if overridden_num_samples_per_ray is None:
+        overridden_num_samples_per_ray_for_beautiful_renders = 1024  # :)
+    else:
+        overridden_num_samples_per_ray_for_beautiful_renders = (
+            overridden_num_samples_per_ray
+        )
+
     # render images
     log.info(f"rendering intermediate output for feedback")
 
@@ -133,6 +142,7 @@ def visualize_sh_vox_grid_vol_mod_rendered_feedback(
         gpu_render=True,
         verbose=verbose_rendering,
         optimized_sampling=use_optimized_sampling_mode,
+        num_samples_per_ray=overridden_num_samples_per_ray_for_beautiful_renders,
     )
     specular_feedback_image = _process_rendered_output_for_feedback_log(
         specular_rendered_output, vol_mod.render_config.camera_bounds, training_time
@@ -151,6 +161,7 @@ def visualize_sh_vox_grid_vol_mod_rendered_feedback(
             verbose=verbose_rendering,
             optimized_sampling=use_optimized_sampling_mode,
             render_diffuse=True,
+            num_samples_per_ray=overridden_num_samples_per_ray_for_beautiful_renders,
         )
         diffuse_feedback_image = _process_rendered_output_for_feedback_log(
             diffuse_rendered_output, vol_mod.render_config.camera_bounds, training_time
