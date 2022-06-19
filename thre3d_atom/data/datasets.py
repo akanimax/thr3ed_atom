@@ -35,7 +35,7 @@ class PosedImagesDataset(torch_data.Dataset):
         camera_params_json: Path,
         image_data_range: Tuple[float, float] = (0.0, 1.0),
         normalize_scene_scale: bool = False,
-        downsample_factor: int = 1,  # no downsampling by default
+        downsample_factor: float = 1.0,  # no downsampling by default
         rgba_white_bkgd: bool = False,  # whether to convert rgba images to have white background
     ) -> None:
         assert images_dir.exists(), f"Images dir doesn't exist: {images_dir}"
@@ -55,7 +55,7 @@ class PosedImagesDataset(torch_data.Dataset):
 
         # initialize the state of the object
         self._downsample_factor = downsample_factor
-        self._scene_bounds = self._setup_scene_bounds()
+        self._camera_bounds = self._setup_camera_bounds()
         self._camera_intrinsics = self._setup_camera_intrinsics()
         self._image_transform = get_torch_vision_image_transform(
             new_size=(self._camera_intrinsics.height, self._camera_intrinsics.width)
@@ -67,22 +67,57 @@ class PosedImagesDataset(torch_data.Dataset):
         if normalize_scene_scale:
             self._normalize_scene_scale()
 
-        # attempt caching of all images in cpu-memory, aka. RAM
-        self._cached_images = None
+        # -----------------------------------------------------------------------------------------
+        #  Data Caching code :)                                                                   |
+        # -----------------------------------------------------------------------------------------
+        self._cached_data_mode = False
+        self._cached_images, self._cached_poses = None, None
+        cache_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         try:
-            self._cached_images = self._cache_all_images()
-            log.info(f"Caching of all {len(self._cached_images)} images successful ...")
+            # attempt caching of the data in gpu-memory first
+            self._cached_images, self._cached_poses = self._cache_all_data(
+                cache_device=cache_device
+            )
+            log.info(
+                f"Caching of all {len(self._cached_images)} data-samples "
+                f"on {cache_device} successful! yay! ..."
+            )
         except RuntimeError:
-            log.info(f"Couldn't fit all images on cpu memory")
+            log.info(f"Couldn't fit all images on {cache_device} :(")
+            log.info(f"Attempting a caching on default ``cpu'' device ... ")
+            try:
+                # If failed on GPU :(,  attempt caching of the data in cpu memory
+                fallback_cpu_device = torch.device("cpu")
+                self._cached_images, self._cached_poses = self._cache_all_data(
+                    fallback_cpu_device
+                )
+                log.info(
+                    f"Caching of all {len(self._cached_images)} data-samples "
+                    f"on {fallback_cpu_device} successful! :|"
+                )
+            except RuntimeError:
+                # if no caching worked :(, then revert to the default batch-stream mode ...
+                log.info(
+                    f"Unfortunately, none of the caching worked :(, so reverting to the default"
+                    f"batch-streaming mode. This unfortunately slows down the pipeline by quite a bit."
+                )
+                # the following is not needed, but I am a paranoid programmer :D.
+                # better safe than sorry ;) :D.
+                self._cached_data_mode = False
+        # -----------------------------------------------------------------------------------------
 
     @property
-    def scene_bounds(self) -> CameraBounds:
-        return self._scene_bounds
+    def cached_data_mode(self) -> bool:
+        return self._cached_data_mode
 
-    @scene_bounds.setter
-    def scene_bounds(self, scene_bounds: CameraBounds) -> None:
+    @property
+    def camera_bounds(self) -> CameraBounds:
+        return self._camera_bounds
+
+    @camera_bounds.setter
+    def camera_bounds(self, camera_bounds: CameraBounds) -> None:
         # TODO: check if any specific checking code needs to be added here.
-        self._scene_bounds = scene_bounds
+        self._camera_bounds = camera_bounds
 
     @property
     def camera_intrinsics(self) -> CameraIntrinsics:
@@ -107,13 +142,28 @@ class PosedImagesDataset(torch_data.Dataset):
                     filtered_image_file_paths.append(image_file_paths[index])
         return filtered_image_file_paths
 
-    def _cache_all_images(self) -> np.array:
-        images_cache = {}
+    def _cache_all_data(
+        self, cache_device: torch.device
+    ) -> Tuple[Dict[Path, Tensor], Dict[Path, Tensor]]:
+        images_cache, poses_cache = {}, {}
         for image_file_path in self._image_file_paths:
-            # It's okay pass a PIL Image to np.array. PyCharm complains for no reason
-            # noinspection PyTypeChecker
-            images_cache[image_file_path] = np.array(Image.open(image_file_path))
-        return images_cache
+            # load -> process -> cache the image
+            image = Image.open(image_file_path)
+            image = self._process_image(image).to(cache_device)
+            images_cache[image_file_path] = image
+
+            # load -> cache the pose
+            camera_params = self._camera_parameters[image_file_path.name]
+            pose = self.extract_pose(camera_params)
+            unified_pose = torch.from_numpy(
+                np.hstack((pose.rotation, pose.translation))
+            ).to(cache_device)
+            poses_cache[image_file_path] = unified_pose
+
+        # successfully cached all the data! yay!!
+        self._cached_data_mode = True
+
+        return images_cache, poses_cache
 
     def _normalize_scene_scale(self):
         # obtain all the locations of the cameras and compute the distance of the farthest camera from origin
@@ -143,9 +193,9 @@ class PosedImagesDataset(torch_data.Dataset):
             )
 
         # finally, also update the scene_bounds
-        self._scene_bounds = CameraBounds(
-            (self._scene_bounds.near / max_norm),
-            (self._scene_bounds.far / max_norm),
+        self._camera_bounds = CameraBounds(
+            (self._camera_bounds.near / max_norm),
+            (self._camera_bounds.far / max_norm),
         )
 
     def get_hemispherical_radius_estimate(self) -> float:
@@ -164,7 +214,7 @@ class PosedImagesDataset(torch_data.Dataset):
         return hemispherical_radius_estimate
 
     # noinspection PyArgumentList
-    def _setup_scene_bounds(self) -> CameraBounds:
+    def _setup_camera_bounds(self) -> CameraBounds:
         all_bounds = np.vstack(
             [
                 np.array(camera_param[INTRINSIC][BOUNDS]).astype(np.float32)
@@ -172,8 +222,8 @@ class PosedImagesDataset(torch_data.Dataset):
             ]
         )
 
-        near = all_bounds.min() * 1.0
-        far = all_bounds.max() * 1.0
+        near = all_bounds.min() * 0.9
+        far = all_bounds.max() * 1.1
         return CameraBounds(near, far)
 
     def _setup_camera_intrinsics(self) -> CameraIntrinsics:
@@ -195,6 +245,26 @@ class PosedImagesDataset(torch_data.Dataset):
         height, width, focal = all_camera_intrinsics[0, :] / self._downsample_factor
         return CameraIntrinsics(int(height), int(width), focal)
 
+    def _process_image(self, image: Image.Image) -> Tensor:
+        # some simple and not so interesting pre-processing of the image
+        image = self._image_transform(image)
+        if image.shape[0] > 3:
+            if image.shape[0] == 4:
+                # RGBA image case
+                if self._rgba_white_bkgd:
+                    # need to composite the image on a white background:
+                    rgb, alpha = image[:-1, ...], image[-1:, ...]
+                    image = (rgb * alpha) + (1 - alpha)
+                else:
+                    # premultiply the RGB with alpha to get correct
+                    # interpolation
+                    image = image[:3, ...] * image[3:, ...]
+            else:
+                # some god knows what fancy-spectral/even-non image case
+                # just use the first three channels and treat them as RGB
+                image = image[:3, ...]
+        return image
+
     @staticmethod
     def extract_pose(camera_params: Dict[str, Any]) -> CameraPose:
         """could be private utility function to turn the pose in dictionary form
@@ -214,41 +284,34 @@ class PosedImagesDataset(torch_data.Dataset):
         # pull the image at the index
         image_file_path = self._image_file_paths[index]
 
-        # retrieve the camera_parameters of the image and make a single tensor
-        # for using the pytorch's data-loading machinery :)
-        camera_params = self._camera_parameters[image_file_path.name]
-        pose = self.extract_pose(camera_params)
-        unified_pose = torch.from_numpy(np.hstack((pose.rotation, pose.translation)))
+        # -----------------------------------------------------------------------------------------
+        #  Actual data-loading code :)                                                            |
+        # -----------------------------------------------------------------------------------------
+        if self._cached_data_mode:
+            # just access the cached images and poses if operating in the cached data mode,
+            # otherwise, revert to the default behaviour of loading and pre-processing the
+            # data per request.
+            image, unified_pose = (
+                self._cached_images[image_file_path],
+                self._cached_poses[image_file_path],
+            )
+        else:
+            # retrieve the camera_parameters of the image and make a single tensor
+            # for using the pytorch's data-loading machinery :)
+            camera_params = self._camera_parameters[image_file_path.name]
+            pose = self.extract_pose(camera_params)
+            unified_pose = torch.from_numpy(
+                np.hstack((pose.rotation, pose.translation))
+            )
 
-        # load and normalize the image
-        # just use the cached image if available in the cache
-        image = (
-            Image.open(image_file_path)
-            if self._cached_images is None
-            else self._cached_images[image_file_path]
-        )
-
-        # some simple and not so interesting pre-processing of the image
-        image = self._image_transform(image)
-        if image.shape[0] > 3:
-            if image.shape[0] == 4:
-                # RGBA image case
-                if self._rgba_white_bkgd:
-                    # need to composite the image on a white background:
-                    rgb, alpha = image[:-1, ...], image[-1:, ...]
-                    image = (rgb * alpha) + (1 - alpha)
-                else:
-                    # premultiply the RGB with alpha to get correct
-                    # interpolation
-                    image = image[:3, ...] * image[3:, ...]
-            else:
-                # some god knows what fancy-spectral/even-non image case
-                # just use the first three channels and treat them as RGB
-                image = image[:3, ...]
+            # load and normalize the image per request:
+            image = Image.open(image_file_path)
+            image = self._process_image(image)
+        # -----------------------------------------------------------------------------------------
 
         # change the dynamic range of the image values if they are different from the pytorch's default range
         # (0.0, 1.0)
-        default_image_range = image.min().item(), image.max().item()
+        default_image_range = (0.0, 1.0)
         if self._image_data_range != default_image_range:
             image = adjust_dynamic_range(
                 image, drange_in=default_image_range, drange_out=self._image_data_range

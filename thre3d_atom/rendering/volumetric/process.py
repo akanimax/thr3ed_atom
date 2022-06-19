@@ -12,7 +12,7 @@ from thre3d_atom.rendering.volumetric.render_interface import (
 from thre3d_atom.rendering.volumetric.utils.spherical_harmonics import (
     evaluate_spherical_harmonics,
 )
-from thre3d_atom.reprs.voxels import VoxelGrid
+from thre3d_atom.thre3d_reprs.voxels import VoxelGrid
 from thre3d_atom.utils.constants import NUM_COLOUR_CHANNELS, INFINITY
 from thre3d_atom.utils.misc import batchify
 
@@ -22,7 +22,7 @@ def process_points_with_sh_voxel_grid(
     rays: Rays,
     voxel_grid: VoxelGrid,
     render_diffuse: bool = False,
-    parallel_chunk_size: Optional[int] = None,
+    parallel_points_chunk_size: Optional[int] = None,
 ) -> ProcessedPointsOnRays:
     dtype, device = sampled_points.points.dtype, sampled_points.points.device
 
@@ -33,13 +33,13 @@ def process_points_with_sh_voxel_grid(
     flat_sampled_points = sampled_points.points.reshape(-1, num_coords)
 
     # account for point/sample-based parallelization if requested
-    if parallel_chunk_size is None:
+    if parallel_points_chunk_size is None:
         interpolated_features = voxel_grid(flat_sampled_points)
     else:
         interpolated_features = batchify(
             voxel_grid,
             collate_fn=partial(torch.cat, dim=0),
-            chunk_size=parallel_chunk_size,
+            chunk_size=parallel_points_chunk_size,
         )(flat_sampled_points)
 
     # unpack sh_coeffs and density features:

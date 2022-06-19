@@ -7,7 +7,7 @@ from thre3d_atom.rendering.volumetric.render_interface import (
     Rays,
     SampledPointsOnRays,
 )
-from thre3d_atom.reprs.voxels import AxisAlignedBoundingBox
+from thre3d_atom.thre3d_reprs.voxels import AxisAlignedBoundingBox
 from thre3d_atom.utils.constants import ZERO_PLUS
 from thre3d_atom.utils.imaging_utils import CameraBounds
 
@@ -84,7 +84,7 @@ def _ray_aabb_intersection(
 
     # preamble :D
     dtype, device = rays.origins.dtype, rays.origins.device
-    origins, directions = rays
+    origins, directions = rays.origins, rays.directions
     num_rays = origins.shape[0]
     orig_ray_bounds = (
         torch.tensor([bounds.near, bounds.far], dtype=dtype, device=device)

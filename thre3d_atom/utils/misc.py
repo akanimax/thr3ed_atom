@@ -1,4 +1,9 @@
-from typing import Callable, Sequence, Any, Optional
+from pathlib import Path
+from typing import Callable, Sequence, Any, Optional, Tuple, List
+
+import numpy as np
+import yaml
+from easydict import EasyDict
 from tqdm import tqdm
 
 
@@ -28,3 +33,26 @@ def batchify(
         return collate_fn(processed_inputs_batches)
 
     return batchified_processor_fn
+
+
+def compute_thre3d_grid_sizes(
+    final_required_resolution: Tuple[int, int, int],
+    num_stages: int,
+    scale_factor: float,
+) -> List[Tuple[int, int, int]]:
+    x, y, z = final_required_resolution
+    grid_sizes = [(x, y, z)]
+    for _ in range(num_stages - 1):
+        x = int(np.ceil((1 / scale_factor) * x))
+        y = int(np.ceil((1 / scale_factor) * y))
+        z = int(np.ceil((1 / scale_factor) * z))
+        grid_sizes.insert(0, (x, y, z))
+    return grid_sizes
+
+
+def log_config_to_disk(
+    args: EasyDict, output_dir: Path, config_file_name: str = "config.yml"
+) -> None:
+    output_dir.mkdir(exist_ok=True, parents=True)
+    with open(str(output_dir / config_file_name), "w") as outfile:
+        yaml.dump(dict(args), outfile, default_flow_style=False)

@@ -133,3 +133,6 @@ dmypy.json
 
 # ignore pycharm files
 .idea
+
+# ignore the logs directory as well:
+logs/
