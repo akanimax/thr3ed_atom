@@ -1,5 +1,7 @@
 import copy
-from typing import Dict, Any, Optional
+import dataclasses
+from pathlib import Path
+from typing import Dict, Any, Optional, Callable
 
 import torch
 from torch.nn import Module
@@ -12,7 +14,16 @@ from thre3d_atom.rendering.volumetric.utils.misc import (
     reshape_rendered_output,
     collate_rendered_output,
 )
+from thre3d_atom.thre3d_reprs.constants import (
+    RENDER_CONFIG,
+    RENDER_PROCEDURE,
+    STATE_DICT,
+    CONFIG_DICT,
+    THRE3D_REPR,
+    RENDER_CONFIG_TYPE,
+)
 from thre3d_atom.thre3d_reprs.renderers import RenderProcedure, RenderConfig
+from thre3d_atom.utils.constants import EXTRA_INFO
 from thre3d_atom.utils.imaging_utils import CameraIntrinsics, CameraPose
 
 
@@ -68,6 +79,22 @@ class VolumetricModel:
             setattr(updated_render_config, field, value)
 
         return updated_render_config
+
+    def get_save_info(
+        self, extra_info: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        save_info = {
+            THRE3D_REPR: {
+                STATE_DICT: self._thre3d_repr.state_dict(),
+                CONFIG_DICT: self._thre3d_repr.get_save_config_dict(),
+            },
+            RENDER_PROCEDURE: self._render_procedure,
+            RENDER_CONFIG_TYPE: type(self._render_config),
+            RENDER_CONFIG: dataclasses.asdict(self._render_config),
+        }
+        if extra_info is not None:
+            save_info.update({EXTRA_INFO: extra_info})
+        return save_info
 
     def render_rays(
         self, rays: Rays, parallel_points_chunk_size: Optional[int] = None, **kwargs
@@ -145,3 +172,22 @@ class VolumetricModel:
         )
 
         return rendered_output
+
+
+def create_volumetric_model_from_saved_model(
+    model_path: Path,
+    thre3d_repr_creator: Callable[[Dict[str, Any]], Module],
+    device: torch.device = torch.device("cpu"),
+) -> VolumetricModel:
+    # load the saved model's data using
+    model_data = torch.load(model_path)
+    thre3d_repr = thre3d_repr_creator(model_data)
+    render_config = model_data[RENDER_CONFIG_TYPE](**model_data[RENDER_CONFIG])
+
+    # return a newly constructed VolumetricModel using the info above
+    return VolumetricModel(
+        thre3d_repr=thre3d_repr,
+        render_procedure=model_data[RENDER_PROCEDURE],
+        render_config=render_config,
+        device=device,
+    )
