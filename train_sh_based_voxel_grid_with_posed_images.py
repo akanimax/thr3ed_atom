@@ -90,7 +90,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
               help="learning rate used at the beginning (ADAM OPTIMIZER)", show_default=True)
 @click.option("--lr_decay_steps_per_stage", type=click.INT, required=False, default=1000,
               help="number of iterations after which lr is exponentially decayed per stage", show_default=True)
-@click.option("--lr_decay_gamma_per_stage", type=click.FLOAT, required=False, default=0.03,
+@click.option("--lr_decay_gamma_per_stage", type=click.FLOAT, required=False, default=0.1,
               help="value of gamma for exponential lr_decay (happens per stage)", show_default=True)
 @click.option("--stagewise_lr_decay_gamma", type=click.FLOAT, required=False, default=0.9,
               help="value of gamma used for reducing the learning rate after each stage", show_default=True)
@@ -151,11 +151,13 @@ def main(**kwargs) -> None:
         vox_grid_density_activations_dict = {
             "density_preactivation": torch.nn.Identity(),
             "density_postactivation": torch.nn.ReLU(),
+            "expected_density_scale": 100.0,  # note this expected density value :)
         }
     else:
         vox_grid_density_activations_dict = {
             "density_preactivation": torch.abs,
             "density_postactivation": torch.nn.Identity(),
+            "expected_density_scale": 1.0,  # Also note this expected density value :wink:
         }
     # The use of terminologies pre-activation and post-activations is inspired from the
     # amazing DVGo work -> https://sunset1995.github.io/dvgo/
