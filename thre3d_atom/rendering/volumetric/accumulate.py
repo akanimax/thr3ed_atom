@@ -75,10 +75,10 @@ def accumulate_radiance_density_on_rays(
     acc_render = torch.sum(weights, dim=-1, keepdim=True)
 
     if white_bkgd:
-        # add a white background if requested. Please note the ** 2, which
-        # makes the background radiance equal to the background alpha
-        # preventing some light leaking artifacts in the optimized models
-        colour_render = colour_render + ((1 - acc_render) ** 2)
+        # add a white background if requested. Mathematically, note that we assume
+        # the background to be emitting a solid bright white colour RGB=(1.0, 1.0, 1.0)
+        # hence the simplification of the alpha-composition formula :)
+        colour_render = colour_render + (1 - acc_render)
 
     # compute depth_render and disparity_render (inverse depth)
     depth_render = (processed_points.depths * weights).sum(dim=-1, keepdims=True)

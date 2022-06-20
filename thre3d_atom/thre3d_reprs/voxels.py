@@ -1,5 +1,5 @@
 """ manually written sort-of-low-level implementation for voxel-based 3D volumetric representations """
-from typing import Tuple, NamedTuple, Optional, Callable, Dict
+from typing import Tuple, NamedTuple, Optional, Callable, Dict, Any
 
 import torch
 from torch import Tensor
@@ -53,6 +53,7 @@ class VoxelGrid(Module):
         feature_postactivation: Callable[[Tensor], Tensor] = torch.nn.Identity(),
         # radiance function / transfer function:
         radiance_transfer_function: Callable[[Tensor, Tensor], Tensor] = None,
+        expected_density_scale: float = 100.0,
         tunable: bool = False,
     ):
         """
@@ -69,6 +70,7 @@ class VoxelGrid(Module):
             feature_postactivation: the activation to be applied to the features after interpolating.
             radiance_transfer_function: the function that maps (can map)
                                         the interpolated features to RGB (radiance) values
+            expected_density_scale: expected scale of the raw-density values. Defaults to a nice constant=100.0
             tunable: whether to treat the densities and features Tensors as tunable (trainable) parameters
         """
         # as usual start with assertions about the inputs:
@@ -94,6 +96,7 @@ class VoxelGrid(Module):
         self._radiance_transfer_function = radiance_transfer_function
         self._grid_location = grid_location
         self._voxel_size = voxel_size
+        self._expected_density_scale = expected_density_scale
         self._tunable = tunable
 
         if tunable:
@@ -157,17 +160,7 @@ class VoxelGrid(Module):
     def voxel_size(self, voxel_size: VoxelSize) -> None:
         self._voxel_size = voxel_size
 
-    def get_config_dict(self) -> Dict[str, any]:
-        # grid_location: Optional[VoxelGridLocation] = VoxelGridLocation(),
-        # # density activations:
-        # density_preactivation: Callable[[Tensor], Tensor] = torch.abs,
-        # density_postactivation: Callable[[Tensor], Tensor] = torch.nn.Identity(),
-        # # feature activations:
-        # feature_preactivation: Callable[[Tensor], Tensor] = torch.nn.Identity(),
-        # feature_postactivation: Callable[[Tensor], Tensor] = torch.nn.Identity(),
-        # # radiance function / transfer function:
-        # radiance_transfer_function: Callable[[Tensor, Tensor], Tensor] = None,
-        # tunable: bool = False,
+    def get_config_dict(self) -> Dict[str, Any]:
         return {
             "grid_location": self._grid_location,
             "density_preactivation": self._density_preactivation,
@@ -175,6 +168,7 @@ class VoxelGrid(Module):
             "feature_preactivation": self._feature_preactivation,
             "feature_postactivation": self._feature_postactivation,
             "radiance_transfer_function": self._radiance_transfer_function,
+            "expected_density_scale": self._expected_density_scale,
             "tunable": self._tunable,
         }
 
@@ -283,7 +277,9 @@ class VoxelGrid(Module):
 
         # interpolate and compute densities
         # Note the pre- and post-activations :)
-        preactivated_densities = self._density_preactivation(self._densities)
+        preactivated_densities = self._density_preactivation(
+            self._densities * self._expected_density_scale
+        )  # note the use of the expected density scale
         interpolated_densities = (
             grid_sample(
                 # note the weird z, y, x convention of PyTorch's grid_sample.
