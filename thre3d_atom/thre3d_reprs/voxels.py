@@ -53,7 +53,7 @@ class VoxelGrid(Module):
         feature_postactivation: Callable[[Tensor], Tensor] = torch.nn.Identity(),
         # radiance function / transfer function:
         radiance_transfer_function: Callable[[Tensor, Tensor], Tensor] = None,
-        expected_density_scale: float = 100.0,
+        expected_density_scale: float = 1.0,
         tunable: bool = False,
     ):
         """
