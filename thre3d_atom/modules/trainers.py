@@ -206,7 +206,10 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
         )
 
     # extract the camera_bounds and camera_intrinsics for rest of the procedure
-    camera_intrinsics = train_dataset.camera_intrinsics
+    camera_bounds, camera_intrinsics = (
+        train_dataset.camera_bounds,
+        train_dataset.camera_intrinsics,
+    )
 
     # setup tensorboard writer
     tensorboard_writer = SummaryWriter(str(tensorboard_dir))
@@ -425,20 +428,22 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
             # save the model
             if (
                 global_step % save_freq == 0
-                or stage_iteration == num_iterations_per_stage - 1
+                or stage_iteration == 1
+                or stage_iteration == num_iterations_per_stage
             ):
-                # TODO: implement model saving mechanism
-                pass
-                # torch.save(
-                #     vol_mod.get_save_info(
-                #         extra_info={
-                #             "camera_bounds": camera_bounds,
-                #             "camera_intrinsics": camera_intrinsics,
-                #             "hemispherical_radius": train_dataset.get_hemispherical_radius_estimate(),
-                #         }
-                #     ),
-                #     model_dir / f"model_stage_{stage}_iter_{global_step}.pth",
-                # )
+                log.info(
+                    f"saving model-snapshot at stage {stage}, global step {global_step}"
+                )
+                torch.save(
+                    vol_mod.get_save_info(
+                        extra_info={
+                            "camera_bounds": camera_bounds,
+                            "camera_intrinsics": camera_intrinsics,
+                            "hemispherical_radius": train_dataset.get_hemispherical_radius_estimate(),
+                        }
+                    ),
+                    model_dir / f"model_stage_{stage}_iter_{global_step}.pth",
+                )
         # -------------------------------------------------------------------------------------
 
         # don't upsample the feature grid if the last stage is complete
@@ -454,16 +459,17 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
     # -----------------------------------------------------------------------------------------
 
     # save the final trained model
-    # torch.save(
-    #     vol_mod.get_save_info(
-    #         extra_info={
-    #             "camera_bounds": camera_bounds,
-    #             "camera_intrinsics": camera_intrinsics,
-    #             "hemispherical_radius": train_dataset.get_hemispherical_radius_estimate(),
-    #         }
-    #     ),
-    #     model_dir / f"model_final.pth",
-    # )
+    log.info(f"Saving the final model-snapshot :)! Almost there ... yay!")
+    torch.save(
+        vol_mod.get_save_info(
+            extra_info={
+                "camera_bounds": camera_bounds,
+                "camera_intrinsics": camera_intrinsics,
+                "hemispherical_radius": train_dataset.get_hemispherical_radius_estimate(),
+            }
+        ),
+        model_dir / f"model_final.pth",
+    )
 
     # training complete yay! :)
     log.info("Training complete")

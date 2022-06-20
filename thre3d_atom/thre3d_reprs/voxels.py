@@ -6,6 +6,13 @@ from torch import Tensor
 from torch.nn import Module
 from torch.nn.functional import grid_sample, interpolate
 
+from thre3d_atom.thre3d_reprs.constants import (
+    THRE3D_REPR,
+    STATE_DICT,
+    u_DENSITIES,
+    u_FEATURES,
+    CONFIG_DICT,
+)
 from thre3d_atom.utils.imaging_utils import adjust_dynamic_range
 
 
@@ -159,6 +166,11 @@ class VoxelGrid(Module):
     @voxel_size.setter
     def voxel_size(self, voxel_size: VoxelSize) -> None:
         self._voxel_size = voxel_size
+
+    def get_save_config_dict(self) -> Dict[str, Any]:
+        save_config_dict = self.get_config_dict()
+        save_config_dict.update({"voxel_size": self._voxel_size})
+        return save_config_dict
 
     def get_config_dict(self) -> Dict[str, Any]:
         return {
@@ -359,3 +371,13 @@ def scale_voxel_grid_with_required_output_size(
 
     # noinspection PyProtectedMember
     return new_voxel_grid
+
+
+def create_voxel_grid_from_saved_info_dict(saved_info: Dict[str, Any]) -> VoxelGrid:
+    densities = torch.empty_like(saved_info[THRE3D_REPR][STATE_DICT][u_DENSITIES])
+    features = torch.empty_like(saved_info[THRE3D_REPR][STATE_DICT][u_FEATURES])
+    voxel_grid = VoxelGrid(
+        densities=densities, features=features, **saved_info[THRE3D_REPR][CONFIG_DICT]
+    )
+    voxel_grid.load_state_dict(saved_info[THRE3D_REPR][STATE_DICT])
+    return voxel_grid

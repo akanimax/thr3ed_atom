@@ -16,3 +16,6 @@ EXTRA_POINT_OCCUPANCIES = "point_occupancies"
 EXTRA_SAMPLE_INTERVALS = "deltas"
 EXTRA_POINT_WEIGHTS = "point_weights"
 EXTRA_POINT_DEPTHS = "point_depths"
+
+# misc keys :D:
+EXTRA_INFO = "extra_info"
