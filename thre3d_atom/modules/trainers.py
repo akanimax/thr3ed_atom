@@ -1,3 +1,5 @@
+import time
+from datetime import timedelta
 from functools import partial
 from pathlib import Path
 from typing import Callable, Optional
@@ -23,6 +25,11 @@ from thre3d_atom.thre3d_reprs.renderers import render_sh_voxel_grid
 from thre3d_atom.thre3d_reprs.voxels import (
     VoxelGrid,
     scale_voxel_grid_with_required_output_size,
+)
+from thre3d_atom.utils.constants import (
+    CAMERA_BOUNDS,
+    CAMERA_INTRINSICS,
+    HEMISPHERICAL_RADIUS,
 )
 from thre3d_atom.utils.imaging_utils import CameraPose, to8b
 
@@ -229,6 +236,7 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
     # start actual training
     log.info("beginning training")
     infinite_train_dl = iter(infinite_dataloader(train_dl))
+    time_spent_actually_training = 0
 
     # -----------------------------------------------------------------------------------------
     #  Main Training Loop                                                                     |
@@ -260,6 +268,7 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
         ]
         log_string = f"current stage learning rates: {current_stage_lrs} "
         log.info(log_string)
+        last_time = time.perf_counter()
         # -------------------------------------------------------------------------------------
         #  Single Stage Training Loop                                                         |
         # -------------------------------------------------------------------------------------
@@ -337,7 +346,7 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
             # ---------------------------------------------------------------------------------
 
             # rest of the code per iteration is related to saving/logging/feedback/testing
-
+            time_spent_actually_training += time.perf_counter() - last_time
             global_step = ((stage - 1) * num_iterations_per_stage) + stage_iteration
 
             # tensorboard summaries feedback
@@ -393,8 +402,10 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
                 or stage_iteration == 1
                 or stage_iteration == num_iterations_per_stage
             ):
-                # TODO: implement the training time calculation mechanism for the feedback
-                #  and console logging
+                log.info(
+                    f"TIME CHECK: time spent actually training "
+                    f"till now: {timedelta(seconds=time_spent_actually_training)}"
+                )
                 visualize_sh_vox_grid_vol_mod_rendered_feedback(
                     vol_mod=vol_mod,
                     render_feedback_pose=render_feedback_pose,
@@ -402,7 +413,7 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
                     global_step=global_step,
                     feedback_logs_dir=render_dir,
                     parallel_rays_chunk_size=vol_mod.render_config.parallel_rays_chunk_size,
-                    training_time=None,
+                    training_time=time_spent_actually_training,
                     log_diffuse_rendered_version=True,
                     overridden_num_samples_per_ray=vol_mod.render_config.render_num_samples_per_ray,
                     verbose_rendering=verbose_rendering,
@@ -437,13 +448,17 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
                 torch.save(
                     vol_mod.get_save_info(
                         extra_info={
-                            "camera_bounds": camera_bounds,
-                            "camera_intrinsics": camera_intrinsics,
-                            "hemispherical_radius": train_dataset.get_hemispherical_radius_estimate(),
+                            CAMERA_BOUNDS: camera_bounds,
+                            CAMERA_INTRINSICS: camera_intrinsics,
+                            HEMISPHERICAL_RADIUS: train_dataset.get_hemispherical_radius_estimate(),
                         }
                     ),
                     model_dir / f"model_stage_{stage}_iter_{global_step}.pth",
                 )
+
+            # ignore all the time spent doing verbose stuff :) and update
+            # the last_time clock event
+            last_time = time.perf_counter()
         # -------------------------------------------------------------------------------------
 
         # don't upsample the feature grid if the last stage is complete
@@ -473,4 +488,7 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
 
     # training complete yay! :)
     log.info("Training complete")
+    log.info(
+        f"Total actual training time: {timedelta(seconds=time_spent_actually_training)}"
+    )
     return vol_mod
