@@ -1,0 +1,6 @@
+# we include the data directory in git because
+# this way the images that we worked with can be included in the repository.
+
+# ignore the models directory.
+models
+visualizations
