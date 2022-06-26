@@ -82,13 +82,13 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
               help="number of samples taken per ray during training", show_default=True)
 @click.option("--num_stages", type=click.INT, required=False, default=4,
               help="number of progressive growing stages used in training", show_default=True)
-@click.option("--num_iterations_per_stage", type=click.INT, required=False, default=2000,
+@click.option("--num_iterations_per_stage", type=click.INT, required=False, default=500,
               help="number of training iterations performed per stage", show_default=True)
 @click.option("--scale_factor", type=click.FLOAT, required=False, default=2.0,
               help="factor by which the grid is up-scaled after each stage", show_default=True)
 @click.option("--learning_rate", type=click.FLOAT, required=False, default=0.03,
               help="learning rate used at the beginning (ADAM OPTIMIZER)", show_default=True)
-@click.option("--lr_decay_steps_per_stage", type=click.INT, required=False, default=1000,
+@click.option("--lr_decay_steps_per_stage", type=click.INT, required=False, default=400,
               help="number of iterations after which lr is exponentially decayed per stage", show_default=True)
 @click.option("--lr_decay_gamma_per_stage", type=click.FLOAT, required=False, default=0.1,
               help="value of gamma for exponential lr_decay (happens per stage)", show_default=True)
@@ -104,13 +104,13 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
                    "note that this will be ignored if GPU-caching of the data is successful :)", show_default=True)
 
 # Various frequencies:
-@click.option("--save_frequency", type=click.INT, required=False, default=500,
+@click.option("--save_frequency", type=click.INT, required=False, default=250,
               help="number of iterations after which a model is saved", show_default=True)
-@click.option("--test_frequency", type=click.INT, required=False, default=500,
+@click.option("--test_frequency", type=click.INT, required=False, default=250,
               help="number of iterations after which test metrics are computed", show_default=True)
-@click.option("--feedback_frequency", type=click.INT, required=False, default=200,
+@click.option("--feedback_frequency", type=click.INT, required=False, default=100,
               help="number of iterations after which rendered feedback is generated", show_default=True)
-@click.option("--summary_frequency", type=click.INT, required=False, default=100,
+@click.option("--summary_frequency", type=click.INT, required=False, default=50,
               help="number of iterations after which training-loss/other-summaries are logged", show_default=True)
 
 # Miscellaneous modes
