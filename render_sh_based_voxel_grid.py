@@ -42,7 +42,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # thre360_path options
 @click.option("--camera_pitch", type=click.FLOAT, default=60.0,
               required=False, help="pitch-angle value for the camera for 360 path animation")
-@click.option("--num_frames", type=click.IntRange(min=1), default=84,
+@click.option("--num_frames", type=click.IntRange(min=1), default=180,
               required=False, help="number of frames in the video")
 # spiral path options
 @click.option("--vertical_camera_height", type=click.FLOAT, default=3.0,
@@ -63,6 +63,9 @@ def main(**kwargs) -> None:
     # parse os-checked path-strings into Pathlike Paths :)
     model_path = Path(config.model_path)
     output_path = Path(config.output_path)
+
+    # create the output path if it doesn't exist
+    output_path.mkdir(exist_ok=True, parents=True)
 
     # load volumetric_model from the model_path
     vol_mod, extra_info = create_volumetric_model_from_saved_model(

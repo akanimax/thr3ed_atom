@@ -128,6 +128,13 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
         scale_factor=scale_factor,
     )
 
+    # create downsampled versions of the train_dataset for lower training stages
+    stagewise_train_datasets = [train_dataset]
+    dataset_config_dict = train_dataset.get_config_dict()
+    for stage in range(1, num_stages):
+        dataset_config_dict.update({"downsample_factor": (scale_factor**stage)})
+        stagewise_train_datasets.insert(0, PosedImagesDataset(**dataset_config_dict))
+
     # downscale the feature-grid to the smallest size:
     with torch.no_grad():
         # TODO: Possibly create a nice interface for reprs as a resolution of the below warning
@@ -151,37 +158,11 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
         )
         real_feedback_image = feedback_dataset[0][0].permute(1, 2, 0).cpu().numpy()
 
-    # setup the data_loader(s):
-    # There are a bunch of fancy CPU-GPU configuration being done here.
-    # Nothing too hard to understand, just refer the documentation page of PyTorch's
-    # dataloader -> https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader
-    # And, read the book titled "CUDA_BY_EXAMPLE" https://developer.nvidia.com/cuda-example
-    # Takes not long, just about 1-2 weeks :). But worth it :+1: :+1: :smile:!
-    train_dl = DataLoader(
-        train_dataset,
-        batch_size=image_batch_cache_size,
-        shuffle=True,
-        drop_last=True,
-        num_workers=0 if train_dataset.cached_data_mode else num_workers,
-        pin_memory=not train_dataset.cached_data_mode and num_workers > 0,
-        prefetch_factor=num_workers
-        if not train_dataset.cached_data_mode and num_workers > 0
-        else 2,
-        persistent_workers=not train_dataset.cached_data_mode and num_workers > 0,
+    train_dl = _make_dataloader_from_dataset(
+        train_dataset, image_batch_cache_size, num_workers
     )
     test_dl = (
-        DataLoader(
-            test_dataset,
-            batch_size=1,  # note that testing happens one image at a time
-            shuffle=False,
-            drop_last=False,
-            num_workers=0 if test_dataset.cached_data_mode else num_workers,
-            pin_memory=not test_dataset.cached_data_mode and num_workers > 0,
-            prefetch_factor=num_workers
-            if not test_dataset.cached_data_mode and num_workers > 0
-            else 2,
-            persistent_workers=not test_dataset.cached_data_mode and num_workers > 0,
-        )
+        _make_dataloader_from_dataset(test_dataset, 1, num_workers)
         if test_dataset is not None
         else None
     )
@@ -235,13 +216,20 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
 
     # start actual training
     log.info("beginning training")
-    infinite_train_dl = iter(infinite_dataloader(train_dl))
     time_spent_actually_training = 0
 
     # -----------------------------------------------------------------------------------------
     #  Main Training Loop                                                                     |
     # -----------------------------------------------------------------------------------------
     for stage in range(1, num_stages + 1):
+        # setup the dataset for the current training stage
+        # followed by creating an infinite training data-loader
+        current_stage_train_dataset = stagewise_train_datasets[stage - 1]
+        train_dl = _make_dataloader_from_dataset(
+            current_stage_train_dataset, image_batch_cache_size, num_workers
+        )
+        infinite_train_dl = iter(infinite_dataloader(train_dl))
+
         # setup volumetric_model's optimizer
         current_stage_lr = learning_rate * (stagewise_lr_decay_gamma ** (stage - 1))
         optimizeable_parameters = vol_mod.thre3d_repr.parameters()
@@ -259,9 +247,14 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
         )
 
         # display logs related to this training stage:
+        train_image_height, train_image_width = (
+            current_stage_train_dataset.camera_intrinsics.height,
+            current_stage_train_dataset.camera_intrinsics.width,
+        )
         log.info(
             f"training stage: {stage}   "
-            f"voxel grid resolution: {vol_mod.thre3d_repr.grid_dims}"
+            f"voxel grid resolution: {vol_mod.thre3d_repr.grid_dims} "
+            f"training images resolution: [{train_image_height} x {train_image_width}]"
         )
         current_stage_lrs = [
             param_group["lr"] for param_group in optimizer.param_groups
@@ -286,7 +279,7 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
             for pose in poses:
                 casted_rays = flatten_rays(
                     cast_rays(
-                        camera_intrinsics,
+                        current_stage_train_dataset.camera_intrinsics,
                         CameraPose(rotation=pose[:, :3], translation=pose[:, 3:]),
                         device=vol_mod.device,
                     )
@@ -492,3 +485,26 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
         f"Total actual training time: {timedelta(seconds=time_spent_actually_training)}"
     )
     return vol_mod
+
+
+def _make_dataloader_from_dataset(
+    dataset: PosedImagesDataset, batch_size: int, num_workers: int = 0
+) -> DataLoader:
+    # setup the data_loader:
+    # There are a bunch of fancy CPU-GPU configuration being done here.
+    # Nothing too hard to understand, just refer the documentation page of PyTorch's
+    # dataloader -> https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader
+    # And, read the book titled "CUDA_BY_EXAMPLE" https://developer.nvidia.com/cuda-example
+    # Takes not long, just about 1-2 weeks :). But worth it :+1: :+1: :smile:!
+    return DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        drop_last=True,
+        num_workers=0 if dataset.cached_data_mode else dataset,
+        pin_memory=not dataset.cached_data_mode and num_workers > 0,
+        prefetch_factor=num_workers
+        if not dataset.cached_data_mode and num_workers > 0
+        else 2,
+        persistent_workers=not dataset.cached_data_mode and num_workers > 0,
+    )

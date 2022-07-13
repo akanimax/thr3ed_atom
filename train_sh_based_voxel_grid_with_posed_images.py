@@ -8,6 +8,9 @@ from torch.backends import cudnn
 from thre3d_atom.data.datasets import PosedImagesDataset
 from thre3d_atom.modules.trainers import train_sh_vox_grid_vol_mod_with_posed_images
 from thre3d_atom.modules.volumetric_model import VolumetricModel
+from thre3d_atom.rendering.volumetric.utils.misc import (
+    compute_expected_density_scale_for_relu_field_grid,
+)
 from thre3d_atom.thre3d_reprs.renderers import (
     render_sh_voxel_grid,
     SHVoxGridRenderConfig,
@@ -151,7 +154,10 @@ def main(**kwargs) -> None:
         vox_grid_density_activations_dict = {
             "density_preactivation": torch.nn.Identity(),
             "density_postactivation": torch.nn.ReLU(),
-            "expected_density_scale": 100.0,  # note this expected density value :)
+            # note this expected density value :)
+            "expected_density_scale": compute_expected_density_scale_for_relu_field_grid(
+                config.grid_world_size
+            ),
         }
     else:
         vox_grid_density_activations_dict = {
