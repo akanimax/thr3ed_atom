@@ -131,8 +131,11 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
     # create downsampled versions of the train_dataset for lower training stages
     stagewise_train_datasets = [train_dataset]
     dataset_config_dict = train_dataset.get_config_dict()
+    data_downsample_factor = dataset_config_dict["downsample_factor"]
     for stage in range(1, num_stages):
-        dataset_config_dict.update({"downsample_factor": (scale_factor**stage)})
+        dataset_config_dict.update(
+            {"downsample_factor": data_downsample_factor * (scale_factor**stage)}
+        )
         stagewise_train_datasets.insert(0, PosedImagesDataset(**dataset_config_dict))
 
     # downscale the feature-grid to the smallest size:
