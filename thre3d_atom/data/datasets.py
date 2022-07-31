@@ -84,6 +84,7 @@ class PosedImagesDataset(torch_data.Dataset):
             )
             log.info(
                 f"Caching of all {len(self._cached_images)} data-samples "
+                f"at resolution [{self._camera_intrinsics.height} x {self._camera_intrinsics.width}] "
                 f"on {cache_device} successful! yay! ..."
             )
         except RuntimeError:
@@ -97,6 +98,7 @@ class PosedImagesDataset(torch_data.Dataset):
                 )
                 log.info(
                     f"Caching of all {len(self._cached_images)} data-samples "
+                    f"at resolution [{self._camera_intrinsics.height} x {self._camera_intrinsics.width}] "
                     f"on {fallback_cpu_device} successful! :|"
                 )
             except RuntimeError:
@@ -104,6 +106,8 @@ class PosedImagesDataset(torch_data.Dataset):
                 log.info(
                     f"Unfortunately, none of the caching worked :(, so reverting to the default"
                     f"batch-streaming mode. This unfortunately slows down the pipeline by quite a bit."
+                    f"Lazy PosedImagesDataset created at resolution "
+                    f"[{self._camera_intrinsics.height} x {self._camera_intrinsics.width}] ... "
                 )
                 # the following is not needed, but I am a paranoid programmer :D.
                 # better safe than sorry ;) :D.
