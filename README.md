@@ -14,7 +14,7 @@ Check out this
 inverse rendering tutorial based on ReLU Fields.
 
 # Radiance Fields Experiments
-![hotdog](https://geometry.cs.ucl.ac.uk/group_website/projects/2022/relu_fields/static/videos/spiral_video_for_webpage_hq_cropped.mp4)
+![hotdog](https://geometry.cs.ucl.ac.uk/group_website/projects/2022/relu_fields/static/videos/hotdog_spiral.gif)
 ### Data:
 The data used for these experiments is available at this 
 [**drive**](https://drive.google.com/drive/u/0/folders/1-iJug5cTJA7bhDnhIxTraH5EyuyRA7sr) 
