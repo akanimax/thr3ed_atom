@@ -33,6 +33,11 @@ def render_camera_path_for_volumetric_model(
             {"num_samples_per_ray": overridden_num_samples_per_ray}
         )
 
+    overridden_config_dict.update(
+        # we use the optimized sampling for creating clearer renders
+        {"optimized_sampling": True}
+    )
+
     rendered_frames = []
     total_frames = len(camera_path) + 1
     for frame_num, render_pose in enumerate(camera_path):
@@ -51,10 +56,11 @@ def render_camera_path_for_volumetric_model(
         # apply post-processing to the depth frame
         colour_frame = to8b(colour_frame)
         depth_frame = postprocess_depth_map(
-            depth_frame, vol_mod.render_config.camera_bounds
+            depth_frame, 
+            acc_map=acc_frame
         )
         # tile the acc_frame to have 3 channels
-        acc_frame = to8b(np.tile(acc_frame, (1, 1, NUM_COLOUR_CHANNELS)))
+        acc_frame = to8b(1.0 - np.tile(acc_frame, (1, 1, NUM_COLOUR_CHANNELS)))
 
         # create grand concatenated frame horizontally
         frame = np.concatenate([colour_frame, depth_frame, acc_frame], axis=1)

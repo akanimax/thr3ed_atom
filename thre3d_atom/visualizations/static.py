@@ -81,14 +81,13 @@ def visualize_camera_rays(
 
 def _process_rendered_output_for_feedback_log(
     rendered_output: RenderOut,
-    camera_bounds: CameraBounds,
     training_time: Optional[float] = None,
 ) -> np.array:
     # obtain the colour, acc and depth maps and concatenate them side-by-side.
     colour_map = to8b(rendered_output.colour.cpu().numpy())
     depth_map = postprocess_depth_map(
         rendered_output.depth.cpu().squeeze().numpy(),
-        camera_bounds=camera_bounds,
+        acc_map=rendered_output.extra[EXTRA_ACCUMULATED_WEIGHTS].cpu().numpy(),
     )
     acc_map = to8b(rendered_output.extra[EXTRA_ACCUMULATED_WEIGHTS].cpu().numpy())
     acc_map = np.tile(acc_map, (1, 1, NUM_COLOUR_CHANNELS))
@@ -145,7 +144,7 @@ def visualize_sh_vox_grid_vol_mod_rendered_feedback(
         num_samples_per_ray=overridden_num_samples_per_ray_for_beautiful_renders,
     )
     specular_feedback_image = _process_rendered_output_for_feedback_log(
-        specular_rendered_output, vol_mod.render_config.camera_bounds, training_time
+        specular_rendered_output, training_time
     )
     imageio.imwrite(
         feedback_logs_dir / f"specular_{global_step}.png",
@@ -164,7 +163,7 @@ def visualize_sh_vox_grid_vol_mod_rendered_feedback(
             num_samples_per_ray=overridden_num_samples_per_ray_for_beautiful_renders,
         )
         diffuse_feedback_image = _process_rendered_output_for_feedback_log(
-            diffuse_rendered_output, vol_mod.render_config.camera_bounds, training_time
+            diffuse_rendered_output, training_time
         )
         imageio.imwrite(
             feedback_logs_dir / f"diffuse_{global_step}.png",

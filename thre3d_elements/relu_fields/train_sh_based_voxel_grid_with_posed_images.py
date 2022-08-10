@@ -70,7 +70,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # -------------------------------------------------------------------------------------
 
 # Rendering related arguments:
-@click.option("--render_num_samples_per_ray", type=click.INT, required=False, default=512,
+@click.option("--render_num_samples_per_ray", type=click.INT, required=False, default=1024,
               help="number of samples taken per ray during rendering", show_default=True)
 @click.option("--parallel_rays_chunk_size", type=click.INT, required=False, default=32768,
               help="number of parallel rays processed on the GPU for accelerated rendering", show_default=True)

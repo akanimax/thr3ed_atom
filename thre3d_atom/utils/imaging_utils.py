@@ -91,22 +91,35 @@ def get_2d_coordinates(
 
 
 def postprocess_depth_map(
-    depth_map: np.array, camera_bounds: Optional[CameraBounds] = None
+    depth_map: np.array,
+    acc_map: Optional[np.array] = None,
 ) -> np.array:
-    if camera_bounds is None:
-        depth_min, depth_max = depth_map.min(), depth_map.max()
+    if acc_map is not None:
+        # Note we only use the fg-depth's max value for a proper range
+        fg_depth_map = depth_map * acc_map
+        depth_min, depth_max = depth_map.min(), fg_depth_map.max()
     else:
-        depth_min, depth_max = 0.0, camera_bounds.far
+        depth_min, depth_max = depth_map.min(), depth_map.max()
 
     # squeeze the depth_map's last dimension if it exists
     if len(depth_map.shape) == 3 and depth_map.shape[-1] == 1:
         depth_map = np.squeeze(depth_map, axis=-1)
 
     depth_map = adjust_dynamic_range(
-        depth_map, drange_in=(depth_min, depth_max), drange_out=(0, 1), slack=False
+        depth_map, drange_in=(depth_min, depth_max), drange_out=(0, 1), slack=True
     )
-    colour_map = plt.get_cmap("turbo", lut=1024)
-    return to8b(colour_map(depth_map))[..., :NUM_COLOUR_CHANNELS]
+
+    colour_map = plt.get_cmap("magma", lut=1024)
+    coloured_depth_map = colour_map(depth_map)[..., :NUM_COLOUR_CHANNELS]
+
+    if acc_map is not None:
+        # alpha composite the fg-only coloured depth map with a white background:
+        composite_nr = (coloured_depth_map * acc_map) + ((1.0 - acc_map) ** 2)
+        composite_dr = acc_map + ((1.0 - acc_map) ** 2)
+        composite = composite_nr / composite_dr
+        return to8b(composite)
+
+    return to8b(coloured_depth_map)
 
 
 # ----------------------------------------------------------------------------------

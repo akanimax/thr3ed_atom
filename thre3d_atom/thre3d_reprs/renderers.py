@@ -41,7 +41,7 @@ class SHVoxGridRenderConfig:
 
     # Misc Render mode config
     render_diffuse: bool = False
-    render_num_samples_per_ray: int = 512
+    render_num_samples_per_ray: int = 1024
     parallel_rays_chunk_size: int = 32768
 
 
