@@ -55,11 +55,9 @@ def render_camera_path_for_volumetric_model(
 
         # apply post-processing to the depth frame
         colour_frame = to8b(colour_frame)
-        depth_frame = postprocess_depth_map(
-            depth_frame, 
-            acc_map=acc_frame
-        )
+        depth_frame = postprocess_depth_map(depth_frame, acc_map=acc_frame)
         # tile the acc_frame to have 3 channels
+        # also invert it for a better visualization
         acc_frame = to8b(1.0 - np.tile(acc_frame, (1, 1, NUM_COLOUR_CHANNELS)))
 
         # create grand concatenated frame horizontally

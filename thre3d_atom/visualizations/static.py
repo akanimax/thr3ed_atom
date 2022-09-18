@@ -89,7 +89,8 @@ def _process_rendered_output_for_feedback_log(
         rendered_output.depth.cpu().squeeze().numpy(),
         acc_map=rendered_output.extra[EXTRA_ACCUMULATED_WEIGHTS].cpu().numpy(),
     )
-    acc_map = to8b(rendered_output.extra[EXTRA_ACCUMULATED_WEIGHTS].cpu().numpy())
+    # invert the acc_map for better looking visualization
+    acc_map = to8b(1.0 - rendered_output.extra[EXTRA_ACCUMULATED_WEIGHTS].cpu().numpy())
     acc_map = np.tile(acc_map, (1, 1, NUM_COLOUR_CHANNELS))
 
     text_colour = (0, 0, 0)  # use black ink by default
