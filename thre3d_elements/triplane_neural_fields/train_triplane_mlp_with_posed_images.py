@@ -22,18 +22,23 @@ from thre3d_atom.visualizations.animations import (
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+all_scenes = ["chair", "drums", "ficus", "hotdog", "lego", "materials", "mic", "ship"]
+
 # ---------------------------------------------------------------------------------------------------------------------
 # Script parameters:
 # ---------------------------------------------------------------------------------------------------------------------
-data_path = Path(
-    "/home/animesh/work/ucl/projects/relu_fields/relu_fields/data/nerf_synthetic/lego"
-)
-logs_path = Path(
-    "/home/animesh/work/ucl/projects/relu_fields/relu_fields/experiment_logs/triplane/set_1/lego"
-)
+scene_id = 3
+data_path = Path(f"../../data/3d_scenes/nerf_synthetic/{all_scenes[scene_id]}")
+logs_path = Path(f"../../logs/triplane_mlp/set_1/{all_scenes[scene_id]}")
 grid_size, num_samples_per_ray = 128, 256
+grid_world_size = 3.0
+ray_batch_size = 4096
 feature_size = 8
 white_bkgd = True
+
+# visualization related:
+parallel_points_chunk_size = 32768
+num_frames, camera_pitch = 180, 60.0
 # ---------------------------------------------------------------------------------------------------------------------
 
 
@@ -55,7 +60,7 @@ features = torch.empty((NUM_COORD_DIMENSIONS, grid_size, grid_size, feature_size
 features = torch.nn.init.xavier_uniform_(features)
 triplane = TriplaneStruct(
     features=features,
-    size=3.0,
+    size=grid_world_size,
     feature_preactivation=torch.nn.Tanh(),
     tunable=True,
 )
@@ -81,22 +86,21 @@ train_triplane_mlp_vol_mod_with_posed_images(
     train_dataset,
     logs_path,
     test_dataset=test_dataset,
-    ray_batch_size=2048,
-    num_iterations=300,
+    ray_batch_size=ray_batch_size,
 )
 
 log.info("Creating rotating animation for the final trained model ...")
 animation_poses = get_thre360_animation_poses(
     hemispherical_radius=train_dataset.get_hemispherical_radius_estimate(),
-    camera_pitch=60.0,
-    num_poses=42,
+    camera_pitch=camera_pitch,
+    num_poses=num_frames,
 )
 animation = render_camera_path_for_volumetric_model(
     triplane_vol_mod,
     animation_poses,
     camera_intrinsics=train_dataset.camera_intrinsics,
     use_optimized_sampling=False,
-    parallel_points_chunk_size=32768,
+    parallel_points_chunk_size=parallel_points_chunk_size,
 )
 
 imageio.mimwrite(logs_path / "final_rendered_animation.mp4", animation)

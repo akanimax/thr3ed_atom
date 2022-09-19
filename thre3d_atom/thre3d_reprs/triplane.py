@@ -8,7 +8,7 @@ from thre3d_atom.thre3d_reprs.utils import (
     AxisAlignedBoundingBox,
     normalize_points,
 )
-from typing import Callable
+from typing import Callable, Dict, Any
 
 from thre3d_atom.utils.constants import NUM_COORD_DIMENSIONS
 
@@ -69,6 +69,14 @@ class TriplaneStruct(Module):
             z_range=(self._location.z_coord - half_height, self._location.z_coord + half_height),
         )
         # fmt: on
+
+    def get_save_config_dict(self) -> Dict[str, Any]:
+        return {
+            "size": self._size,
+            "location": self._location,
+            "feature_preactivation": self._feature_preactivation,
+            "tunable": self._tunable,
+        }
 
     @property
     def aabb(self) -> AxisAlignedBoundingBox:

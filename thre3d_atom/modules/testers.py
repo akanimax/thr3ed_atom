@@ -14,12 +14,13 @@ from thre3d_atom.utils.logging import log
 from thre3d_atom.utils.metric_utils import mse2psnr
 
 
-def test_sh_vox_grid_vol_mod_with_posed_images(
+def test_vol_mod_with_posed_images(
     vol_mod: VolumetricModel,
     test_dl: DataLoader,
     parallel_rays_chunk_size: int,
     tensorboard_writer: Optional[SummaryWriter] = None,
     global_step: Optional[int] = None,
+    use_optimized_sampling: bool = True,
 ) -> None:
     log.info(f"Testing the model on {len(test_dl)} heldout images")
     all_psnrs, all_lpips = [], []
@@ -32,8 +33,8 @@ def test_sh_vox_grid_vol_mod_with_posed_images(
             camera_intrinsics=test_dl.dataset.camera_intrinsics,
             parallel_rays_chunk_size=parallel_rays_chunk_size,
             gpu_render=True,
-            optimized_sampling=True,
-            num_samples_per_ray=vol_mod.render_config.render_num_samples_per_ray
+            optimized_sampling=use_optimized_sampling,
+            num_samples_per_ray=vol_mod.render_config.render_num_samples_per_ray,
         )
         rendered_colour = rendered_output.colour.permute(2, 0, 1)
 

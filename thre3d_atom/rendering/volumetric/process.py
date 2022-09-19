@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any
 
 import numpy as np
 import torch
@@ -121,6 +121,16 @@ class RenderMLP(Module):
     ) -> None:
         super().__init__()
 
+        # state of the object:
+        self._input_dims = input_dims
+        self._feat_emb_dims = feat_emb_dims
+        self._dir_emb_dims = dir_emb_dims
+        self._dnet_layer_depths = dnet_layer_depths
+        self._dnet_skips = dnet_skips
+        self._rnet_layer_depths = rnet_layer_depths
+        self._rnet_skips = rnet_skips
+        self._activation_fn = activation_fn
+
         self._feats_encoder = PositionalEmbeddingsEncoder(
             input_dims=input_dims, emb_dims=feat_emb_dims
         )
@@ -145,6 +155,18 @@ class RenderMLP(Module):
             activation_fn=activation_fn,
             out_activation_fn=Identity(),
         )
+
+    def get_save_config_dict(self) -> Dict[str, Any]:
+        return {
+            "input_dims": self._input_dims,
+            "feat_emb_dims": self._feat_emb_dims,
+            "dir_emb_dims": self._dir_emb_dims,
+            "dnet_layer_depths": self._dnet_layer_depths,
+            "dnet_skips": self._dnet_skips,
+            "rnet_layer_depths": self._rnet_layer_depths,
+            "rnet_skips": self._rnet_skips,
+            "activation_fn": self._activation_fn,
+        }
 
     def forward(self, features: Tensor) -> Tensor:
         features, view_dirs = (

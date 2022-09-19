@@ -110,7 +110,7 @@ def _process_rendered_output_for_feedback_log(
     return feedback_image
 
 
-def visualize_sh_vox_grid_vol_mod_rendered_feedback(
+def visualize_vol_mod_rendered_feedback(
     vol_mod: VolumetricModel,
     render_feedback_pose: CameraPose,
     camera_intrinsics: CameraIntrinsics,
@@ -119,7 +119,7 @@ def visualize_sh_vox_grid_vol_mod_rendered_feedback(
     parallel_rays_chunk_size: int = 32768,
     training_time: Optional[float] = None,
     log_diffuse_rendered_version: bool = True,
-    use_optimized_sampling_mode: bool = False,
+    use_optimized_sampling_mode: bool = True,
     overridden_num_samples_per_ray: Optional[int] = None,
     verbose_rendering: bool = True,
 ) -> None:
