@@ -7,7 +7,7 @@ from thre3d_atom.rendering.volumetric.render_interface import (
     Rays,
     SampledPointsOnRays,
 )
-from thre3d_atom.thre3d_reprs.voxels import AxisAlignedBoundingBox
+from thre3d_atom.thre3d_reprs.utils import AxisAlignedBoundingBox
 from thre3d_atom.utils.constants import ZERO_PLUS
 from thre3d_atom.utils.imaging_utils import CameraBounds
 

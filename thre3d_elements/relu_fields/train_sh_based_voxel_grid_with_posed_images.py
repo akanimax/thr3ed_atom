@@ -15,7 +15,8 @@ from thre3d_atom.thre3d_reprs.renderers import (
     render_sh_voxel_grid,
     SHVoxGridRenderConfig,
 )
-from thre3d_atom.thre3d_reprs.voxels import VoxelGrid, VoxelSize, VoxelGridLocation
+from thre3d_atom.thre3d_reprs.voxels import VoxelGrid, VoxelSize
+from thre3d_atom.thre3d_reprs.utils import Thre3dObjectLocation
 from thre3d_atom.utils.constants import NUM_COLOUR_CHANNELS
 from thre3d_atom.utils.logging import log
 from thre3d_atom.utils.misc import log_config_to_disk
@@ -185,7 +186,7 @@ def main(**kwargs) -> None:
         densities=densities,
         features=features,
         voxel_size=voxel_size,
-        grid_location=VoxelGridLocation(*config.grid_location),
+        grid_location=Thre3dObjectLocation(*config.grid_location),
         **vox_grid_density_activations_dict,
         tunable=True,
     )

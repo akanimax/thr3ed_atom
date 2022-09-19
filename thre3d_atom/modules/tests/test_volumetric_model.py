@@ -1,3 +1,4 @@
+from functools import partial
 from pathlib import Path
 
 import imageio
@@ -6,12 +7,16 @@ import torch
 from matplotlib import pyplot as plt
 
 from thre3d_atom.modules.volumetric_model import VolumetricModel
+from thre3d_atom.rendering.volumetric.process import RenderMLP
 from thre3d_atom.thre3d_reprs.renderers import (
     render_sh_voxel_grid,
     SHVoxGridRenderConfig,
+    render_triplane_mlp,
+    TriplaneMLPRenderConfig,
 )
+from thre3d_atom.thre3d_reprs.triplane import TriplaneStruct
 from thre3d_atom.thre3d_reprs.voxels import VoxelGrid, VoxelSize
-from thre3d_atom.utils.constants import EXTRA_ACCUMULATED_WEIGHTS
+from thre3d_atom.utils.constants import EXTRA_ACCUMULATED_WEIGHTS, NUM_COORD_DIMENSIONS
 from thre3d_atom.utils.imaging_utils import (
     CameraIntrinsics,
     CameraBounds,
@@ -29,7 +34,6 @@ def get_default_volumetric_model(
 ) -> VolumetricModel:
     # GIVEN: The following configuration:
     grid_size, num_samples_per_ray = 16, 256
-    num_samples_per_ray = 256
     white_bkgd = True
 
     # construct the VoxelGrid Repr:
@@ -105,7 +109,7 @@ def test_volumetric_model_render(device: torch.device) -> None:
 def test_volumetric_model_render_animation(device: torch.device) -> None:
     camera_bounds = CameraBounds(0.5, 8.0)
     vox_grid_vol_mod = get_default_volumetric_model(camera_bounds, device)
-    hemispherical_radius, camera_pitch, num_poses = 4.0, 60.0, 42
+    hemispherical_radius, camera_pitch, num_poses = 10.0, 60.0, 42
     camera_intrinsics = CameraIntrinsics(400, 400, 512.0)
 
     # get render poses
@@ -117,6 +121,62 @@ def test_volumetric_model_render_animation(device: torch.device) -> None:
 
     animation = render_camera_path_for_volumetric_model(
         vox_grid_vol_mod, animation_poses, camera_intrinsics=camera_intrinsics
+    )
+
+    imageio.mimwrite(Path("~/test_animation.mp4"), animation)
+
+
+def get_default_triplane_model(
+    camera_bounds: CameraBounds, device: torch.device
+) -> VolumetricModel:
+    # GIVEN: The following configuration:
+    grid_size, num_samples_per_ray = 128, 256
+    feature_size = 8
+    white_bkgd = True
+
+    # fmt: off
+    features = torch.empty((NUM_COORD_DIMENSIONS, grid_size, grid_size, feature_size), device=device)
+    features = torch.nn.init.xavier_uniform_(features)
+    triplane = TriplaneStruct(
+        features=features,
+        size=3.0,
+        feature_preactivation=torch.nn.Tanh(),
+        tunable=True,
+    )
+    render_mlp = RenderMLP(input_dims=3*feature_size)
+    # fmt: on
+
+    # set up a volumetricModel using this voxel-grid
+    # noinspection PyTypeChecker
+    triplane_vol_mod = VolumetricModel(
+        thre3d_repr=triplane,
+        render_procedure=partial(render_triplane_mlp, render_mlp=render_mlp.to(device)),
+        render_config=TriplaneMLPRenderConfig(
+            num_samples_per_ray=num_samples_per_ray,
+            camera_bounds=camera_bounds,
+            white_bkgd=white_bkgd,
+        ),
+        device=device,
+    )
+
+    return triplane_vol_mod
+
+
+def test_triplane_volumetric_model_render_animation(device: torch.device) -> None:
+    camera_bounds = CameraBounds(1.0, 16.0)
+    triplane_vol_mod = get_default_triplane_model(camera_bounds, device)
+    hemispherical_radius, camera_pitch, num_poses = 8.0, 60.0, 42
+    camera_intrinsics = CameraIntrinsics(400, 400, 400.0)
+
+    # get render poses
+    animation_poses = get_thre360_animation_poses(
+        hemispherical_radius=hemispherical_radius,
+        camera_pitch=camera_pitch,
+        num_poses=num_poses,
+    )
+
+    animation = render_camera_path_for_volumetric_model(
+        triplane_vol_mod, animation_poses, camera_intrinsics=camera_intrinsics
     )
 
     imageio.mimwrite(Path("~/test_animation.mp4"), animation)

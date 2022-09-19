@@ -19,7 +19,6 @@ from thre3d_atom.utils.constants import EXTRA_ACCUMULATED_WEIGHTS, NUM_COLOUR_CH
 from thre3d_atom.utils.imaging_utils import (
     CameraPose,
     CameraIntrinsics,
-    CameraBounds,
     to8b,
     postprocess_depth_map,
 )

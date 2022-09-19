@@ -20,6 +20,8 @@ def render_camera_path_for_volumetric_model(
     camera_intrinsics: CameraIntrinsics,
     render_scale_factor: Optional[float] = None,
     overridden_num_samples_per_ray: Optional[int] = None,
+    use_optimized_sampling: bool = True,
+    parallel_points_chunk_size: Optional[int] = None,
 ) -> np.array:
     if render_scale_factor is not None:
         # Render downsampled images for speed if requested
@@ -33,10 +35,11 @@ def render_camera_path_for_volumetric_model(
             {"num_samples_per_ray": overridden_num_samples_per_ray}
         )
 
-    overridden_config_dict.update(
-        # we use the optimized sampling for creating clearer renders
-        {"optimized_sampling": True}
-    )
+    if use_optimized_sampling:
+        overridden_config_dict.update(
+            # we use the optimized sampling for creating clearer renders
+            {"optimized_sampling": True}
+        )
 
     rendered_frames = []
     total_frames = len(camera_path) + 1
@@ -45,6 +48,8 @@ def render_camera_path_for_volumetric_model(
         rendered_output = vol_mod.render(
             render_pose,
             camera_intrinsics,
+            parallel_rays_chunk_size=vol_mod.render_config.parallel_rays_chunk_size,
+            parallel_points_chunk_size=parallel_points_chunk_size,
             gpu_render=False,
             verbose=True,
             **overridden_config_dict,

@@ -66,9 +66,9 @@ def _plot_all_cube_sides(
         depth_render = (
             rendered_output.depth.reshape(height, width, 1).detach().cpu().numpy()
         )
-        depth_render = postprocess_depth_map(depth_render, camera_bounds)
         acc_render = rendered_output.extra[EXTRA_ACCUMULATED_WEIGHTS]
         acc_render = acc_render.reshape(height, width, 1).detach().cpu().numpy()
+        depth_render = postprocess_depth_map(depth_render, acc_render)
 
         # show the rendered output:
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
@@ -78,7 +78,7 @@ def _plot_all_cube_sides(
         ax2.set_title("depth render")
         ax2.imshow(depth_render)
         ax3.set_title("acc render")
-        ax3.imshow(acc_render, cmap="gray")
+        ax3.imshow(1.0 - acc_render, cmap="gray")
 
     plt.show()
     render_time = np.mean(render_times).item()

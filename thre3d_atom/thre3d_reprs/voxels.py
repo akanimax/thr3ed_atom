@@ -13,7 +13,11 @@ from thre3d_atom.thre3d_reprs.constants import (
     u_FEATURES,
     CONFIG_DICT,
 )
-from thre3d_atom.utils.imaging_utils import adjust_dynamic_range
+from thre3d_atom.thre3d_reprs.utils import (
+    Thre3dObjectLocation,
+    AxisAlignedBoundingBox,
+    normalize_points,
+)
 
 
 class VoxelSize(NamedTuple):
@@ -25,24 +29,6 @@ class VoxelSize(NamedTuple):
     z_size: float = 1.0
 
 
-class VoxelGridLocation(NamedTuple):
-    """indicates where the Voxel-Grid is located in World Coordinate System
-    i.e. indicates where the centre of the grid is located in the World
-    The Grid is always assumed to be axis aligned"""
-
-    x_coord: float = 0.0
-    y_coord: float = 0.0
-    z_coord: float = 0.0
-
-
-class AxisAlignedBoundingBox(NamedTuple):
-    """defines an axis-aligned voxel grid's spatial extent"""
-
-    x_range: Tuple[float, float]
-    y_range: Tuple[float, float]
-    z_range: Tuple[float, float]
-
-
 class VoxelGrid(Module):
     def __init__(
         self,
@@ -51,7 +37,7 @@ class VoxelGrid(Module):
         features: Tensor,
         # grid coordinate-space properties:
         voxel_size: VoxelSize,
-        grid_location: Optional[VoxelGridLocation] = VoxelGridLocation(),
+        grid_location: Thre3dObjectLocation = Thre3dObjectLocation(),
         # density activations:
         density_preactivation: Callable[[Tensor], Tensor] = torch.abs,
         density_postactivation: Callable[[Tensor], Tensor] = torch.nn.Identity(),
@@ -211,17 +197,6 @@ class VoxelGrid(Module):
             z_range=height_z_range,
         )
 
-    def _normalize_points(self, points: Tensor) -> Tensor:
-        normalized_points = torch.empty_like(points, device=points.device)
-        for coordinate_index, coordinate_range in enumerate(self._aabb):
-            normalized_points[:, coordinate_index] = adjust_dynamic_range(
-                points[:, coordinate_index],
-                drange_in=coordinate_range,
-                drange_out=(-1.0, 1.0),
-                slack=True,
-            )
-        return normalized_points
-
     def extra_repr(self) -> str:
         return (
             f"grid_dims: {(self.width_x, self.depth_y, self.height_z)}, "
@@ -249,30 +224,6 @@ class VoxelGrid(Module):
             dtype=torch.float32,
         )
 
-    def test_inside_volume(self, points: Tensor) -> Tensor:
-        """
-        tests whether the points are inside the AABB or not
-        Args:
-            points: Tensor of shape [N x 3 (NUM_COORD_DIMENSIONS)]
-        Returns: Tensor of shape [N x 1]  (boolean)
-        """
-        return torch.logical_and(
-            torch.logical_and(
-                torch.logical_and(
-                    points[..., 0:1] > self._aabb.x_range[0],
-                    points[..., 0:1] < self._aabb.x_range[1],
-                ),
-                torch.logical_and(
-                    points[..., 1:2] > self._aabb.y_range[0],
-                    points[..., 1:2] < self._aabb.y_range[1],
-                ),
-            ),
-            torch.logical_and(
-                points[..., 2:] > self._aabb.z_range[0],
-                points[..., 2:] < self._aabb.z_range[1],
-            ),
-        )
-
     def forward(self, points: Tensor, viewdirs: Optional[Tensor] = None) -> Tensor:
         """
         computes the features/radiance at the requested 3D points
@@ -285,7 +236,7 @@ class VoxelGrid(Module):
                  whether the `self._radiance_transfer_function` is None.
         """
         # obtain the range-normalized points for interpolation
-        normalized_points = self._normalize_points(points)
+        normalized_points = normalize_points(self._aabb, points)
 
         # interpolate and compute densities
         # Note the pre- and post-activations :)
