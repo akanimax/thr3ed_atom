@@ -44,6 +44,9 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
               required=True, help="path for training output")
 
 # Input dataset related arguments:
+@click.option("--separate_train_test_folders", type=click.BOOL, required=False,
+              default=True, help="whether the data directory has separate train and test folders", 
+              show_default=True)
 @click.option("--data_downsample_factor", type=click.FloatRange(min=1.0), required=False,
               default=2.0, help="downscale factor for the input images if needed."
                                 "Note the default, for training NeRF-based scenes", show_default=True)
@@ -66,11 +69,14 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # -------------------------------------------------------------------------------------
 @click.option("--use_relu_field", type=click.BOOL, required=False, default=True,    # |
               help="whether to use relu_fields or revert to traditional grids",     # |
-              show_default=True)                                                    # |
+              show_default=True)                                                    # |              
 # -------------------------------------------------------------------------------------
 
+@click.option("--use_softplus_field", type=click.BOOL, required=False, default=True,
+              help="whether to use softplus_field or relu_field", show_default=True)
+
 # Rendering related arguments:
-@click.option("--render_num_samples_per_ray", type=click.INT, required=False, default=512,
+@click.option("--render_num_samples_per_ray", type=click.INT, required=False, default=1024,
               help="number of samples taken per ray during rendering", show_default=True)
 @click.option("--parallel_rays_chunk_size", type=click.INT, required=False, default=32768,
               help="number of parallel rays processed on the GPU for accelerated rendering", show_default=True)
@@ -137,23 +143,48 @@ def main(**kwargs) -> None:
     log.info("logging configuration file ...")
     log_config_to_disk(config, output_path)
 
+
+
+
+
+
+
     # create a datasets for training and testing:
-    train_dataset, test_dataset = (
-        PosedImagesDataset(
-            images_dir=data_path / mode,
-            camera_params_json=data_path / f"{mode}_camera_params.json",
+    if config.separate_train_test_folders:
+        train_dataset, test_dataset = (
+            PosedImagesDataset(
+                images_dir=data_path / mode,
+                camera_params_json=data_path / f"{mode}_camera_params.json",
+                normalize_scene_scale=config.normalize_scene_scale,
+                downsample_factor=config.data_downsample_factor,
+                rgba_white_bkgd=config.white_bkgd,
+            )
+            for mode in ("train", "test")
+        )
+    else:
+        train_dataset = PosedImagesDataset(
+            images_dir=data_path / "images",
+            camera_params_json=data_path / "camera_params.json",
             normalize_scene_scale=config.normalize_scene_scale,
             downsample_factor=config.data_downsample_factor,
             rgba_white_bkgd=config.white_bkgd,
         )
-        for mode in ("train", "test")
-    )
+        test_dataset = None
 
     # Choose the proper activations dict based on the requested mode:
     if config.use_relu_field:
         vox_grid_density_activations_dict = {
             "density_preactivation": torch.nn.Identity(),
             "density_postactivation": torch.nn.ReLU(),
+            # note this expected density value :)
+            "expected_density_scale": compute_expected_density_scale_for_relu_field_grid(
+                config.grid_world_size
+            ),
+        }
+    if config.use_softplus_field:
+        vox_grid_density_activations_dict = {
+            "density_preactivation": torch.nn.Identity(),
+            "density_postactivation": torch.nn.Softplus(),
             # note this expected density value :)
             "expected_density_scale": compute_expected_density_scale_for_relu_field_grid(
                 config.grid_world_size

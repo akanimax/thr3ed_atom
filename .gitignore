@@ -106,6 +106,7 @@ celerybeat.pid
 .venv
 env/
 venv/
+relu_fields_env/
 ENV/
 env.bak/
 venv.bak/
@@ -136,3 +137,9 @@ dmypy.json
 
 # ignore the logs directory as well:
 logs/
+experiment_logs/
+
+# ignore the .vscode, and environment.yml for conda
+.vscode
+environment.yml
+

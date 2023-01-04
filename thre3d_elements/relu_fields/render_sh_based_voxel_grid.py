@@ -108,6 +108,7 @@ def main(**kwargs) -> None:
         overridden_num_samples_per_ray=config.overridden_num_samples_per_ray,
         render_scale_factor=config.render_scale_factor,
     )
+
     imageio.mimwrite(
         output_path / "rendered_video.mp4",
         animation_frames,
