@@ -33,11 +33,6 @@ def render_camera_path_for_volumetric_model(
             {"num_samples_per_ray": overridden_num_samples_per_ray}
         )
 
-    overridden_config_dict.update(
-        # we use the optimized sampling for creating clearer renders
-        {"optimized_sampling": True}
-    )
-
     rendered_frames = []
     total_frames = len(camera_path) + 1
     for frame_num, render_pose in enumerate(camera_path):

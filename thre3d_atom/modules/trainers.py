@@ -411,7 +411,7 @@ def train_sh_vox_grid_vol_mod_with_posed_images(
                     parallel_rays_chunk_size=vol_mod.render_config.parallel_rays_chunk_size,
                     training_time=time_spent_actually_training,
                     log_diffuse_rendered_version=True,
-                    use_optimized_sampling_mode=True,  # testing how the optimized sampling mode rendering looks 🙂
+                    use_optimized_sampling_mode=False,  # testing how the optimized sampling mode rendering looks 🙂
                     overridden_num_samples_per_ray=vol_mod.render_config.render_num_samples_per_ray,
                     verbose_rendering=verbose_rendering,
                 )
