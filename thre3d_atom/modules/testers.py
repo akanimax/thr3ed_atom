@@ -32,7 +32,7 @@ def test_sh_vox_grid_vol_mod_with_posed_images(
             camera_intrinsics=test_dl.dataset.camera_intrinsics,
             parallel_rays_chunk_size=parallel_rays_chunk_size,
             gpu_render=True,
-            optimized_sampling=True,
+            optimized_sampling=False,
             num_samples_per_ray=vol_mod.render_config.render_num_samples_per_ray
         )
         rendered_colour = rendered_output.colour.permute(2, 0, 1)
