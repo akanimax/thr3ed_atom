@@ -143,12 +143,6 @@ def main(**kwargs) -> None:
     log.info("logging configuration file ...")
     log_config_to_disk(config, output_path)
 
-
-
-
-
-
-
     # create a datasets for training and testing:
     if config.separate_train_test_folders:
         train_dataset, test_dataset = (

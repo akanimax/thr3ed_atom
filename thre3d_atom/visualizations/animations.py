@@ -20,6 +20,7 @@ def render_camera_path_for_volumetric_model(
     camera_intrinsics: CameraIntrinsics,
     render_scale_factor: Optional[float] = None,
     overridden_num_samples_per_ray: Optional[int] = None,
+    verbose: bool = True,
 ) -> np.array:
     if render_scale_factor is not None:
         # Render downsampled images for speed if requested
@@ -36,12 +37,13 @@ def render_camera_path_for_volumetric_model(
     rendered_frames = []
     total_frames = len(camera_path) + 1
     for frame_num, render_pose in enumerate(camera_path):
-        log.info(f"rendering frame number: ({frame_num + 1}/{total_frames})")
+        if verbose:
+            log.info(f"rendering frame number: ({frame_num + 1}/{total_frames})")
         rendered_output = vol_mod.render(
             render_pose,
             camera_intrinsics,
             gpu_render=False,
-            verbose=True,
+            verbose=verbose,
             **overridden_config_dict,
         )
         colour_frame = rendered_output.colour.numpy()

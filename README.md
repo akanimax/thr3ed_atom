@@ -1,3 +1,14 @@
+# :star: 3inFusion
+**Work in progress** showcase project for the 3D-atom package. We use a diffusion network to model semantic variations of a given single 3D scene which is self similar and stochastic. Following is a teaser of this concept:
+![teaser](https://user-images.githubusercontent.com/16590868/219002515-2d6d0c38-eb76-43f3-96e0-82cfbe903af7.png)
+The diffusion model is trained on fixed sized 3D crops of the original 3D voxel-grid (containing the object or the scene). At test-time, samples of original resolution are drawn using the trained model. This idea essentially replaces the GAN in [3inGAN](https://geometry.cs.ucl.ac.uk/group_website/projects/2022/3inGAN/). The code can be located under the `thre3d_elements/thre3infusion` directory. 
+
+### Some results in Action:
+G.T. 3D scene:
+[![gt_scene](https://user-images.githubusercontent.com/16590868/219005291-60647f1c-44d0-476d-b809-dbb2c736db9b.png)](https://user-images.githubusercontent.com/16590868/219004077-5448de93-6526-4fd2-818e-1838c075220f.mp4)
+Random samples:
+[![random_samples](https://user-images.githubusercontent.com/16590868/219005513-7c97461e-f033-415b-9b5b-fb7fcee9c8c5.png)](https://user-images.githubusercontent.com/16590868/219000314-6f1de3fc-4c60-4e67-bb74-226674f04155.mp4)
+
 # relu_fields
 **Official** implementation of the paper: 
 [**ReLU Fields: The Little Non-linearity That Could.**](https://geometry.cs.ucl.ac.uk/group_website/projects/2022/relu_fields/)
