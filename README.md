@@ -1,7 +1,7 @@
 # :star: 3inFusion
-**Work in progress** showcase project for the 3D-atom package. We use a diffusion network to model semantic variations of a given single 3D scene which is self similar and stochastic. Following is a teaser of this concept:
+**[Work in progress]** Showcase project for the `thr3ed_atom` package. We use a diffusion network to model semantic variations of a given single 3D scene which is self similar and stochastic. Following is a teaser of this concept:
 ![teaser](https://user-images.githubusercontent.com/16590868/219002515-2d6d0c38-eb76-43f3-96e0-82cfbe903af7.png)
-The diffusion model is trained on fixed sized 3D crops of the original 3D voxel-grid (containing the object or the scene). At test-time, samples of original resolution are drawn using the trained model. This idea essentially replaces the GAN in [3inGAN](https://geometry.cs.ucl.ac.uk/group_website/projects/2022/3inGAN/). The code can be located under the `thre3d_elements/thre3infusion` directory. 
+The diffusion model is trained on fixed sized 3D crops of the original 3D voxel-grid (containing the object or the scene). At test-time, samples of original resolution are drawn using the trained model. This idea essentially replaces the GAN in [3inGAN](https://geometry.cs.ucl.ac.uk/group_website/projects/2022/3inGAN/) with DIFFUSION. The code can be located under the `thre3d_elements/thre3infusion` directory. 
 
 ### Some results in Action:
 G.T. 3D scene:
