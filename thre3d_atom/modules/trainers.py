@@ -509,6 +509,6 @@ def _make_dataloader_from_dataset(
         pin_memory=not dataset.cached_data_mode and num_workers > 0,
         prefetch_factor=num_workers
         if not dataset.cached_data_mode and num_workers > 0
-        else 2,
+        else None,
         persistent_workers=not dataset.cached_data_mode and num_workers > 0,
     )
