@@ -52,7 +52,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
                                 "Note the default, for training NeRF-based scenes", show_default=True)
 
 # Voxel-grid related arguments:
-@click.option("--grid_dims", type=click.INT, nargs=3, required=False, default=(128, 128, 128),
+@click.option("--grid_dims", type=click.INT, nargs=3, required=False, default=(256, 256, 256),
               help="dimensions (#voxels) of the grid along x, y and z axes", show_default=True)
 @click.option("--grid_location", type=click.FLOAT, nargs=3, required=False, default=(0.0, 0.0, 0.0),
               help="dimensions (#voxels) of the grid along x, y and z axes", show_default=True)
@@ -72,7 +72,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
               show_default=True)                                                    # |              
 # -------------------------------------------------------------------------------------
 
-@click.option("--use_softplus_field", type=click.BOOL, required=False, default=True,
+@click.option("--use_softplus_field", type=click.BOOL, required=False, default=False,
               help="whether to use softplus_field or relu_field", show_default=True)
 
 # Rendering related arguments:
@@ -87,21 +87,21 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Training related arguments:
 @click.option("--ray_batch_size", type=click.INT, required=False, default=16384,
               help="number of randomly sampled rays used per training iteration", show_default=True)
-@click.option("--train_num_samples_per_ray", type=click.INT, required=False, default=256,
+@click.option("--train_num_samples_per_ray", type=click.INT, required=False, default=512,
               help="number of samples taken per ray during training", show_default=True)
 @click.option("--num_stages", type=click.INT, required=False, default=4,
               help="number of progressive growing stages used in training", show_default=True)
-@click.option("--num_iterations_per_stage", type=click.INT, required=False, default=500,
+@click.option("--num_iterations_per_stage", type=click.INT, required=False, default=3000,
               help="number of training iterations performed per stage", show_default=True)
 @click.option("--scale_factor", type=click.FLOAT, required=False, default=2.0,
               help="factor by which the grid is up-scaled after each stage", show_default=True)
 @click.option("--learning_rate", type=click.FLOAT, required=False, default=0.03,
               help="learning rate used at the beginning (ADAM OPTIMIZER)", show_default=True)
-@click.option("--lr_decay_steps_per_stage", type=click.INT, required=False, default=400,
+@click.option("--lr_decay_steps_per_stage", type=click.INT, required=False, default=2000,
               help="number of iterations after which lr is exponentially decayed per stage", show_default=True)
 @click.option("--lr_decay_gamma_per_stage", type=click.FLOAT, required=False, default=0.1,
               help="value of gamma for exponential lr_decay (happens per stage)", show_default=True)
-@click.option("--stagewise_lr_decay_gamma", type=click.FLOAT, required=False, default=0.9,
+@click.option("--stagewise_lr_decay_gamma", type=click.FLOAT, required=False, default=1.0,
               help="value of gamma used for reducing the learning rate after each stage", show_default=True)
 @click.option("--apply_diffuse_render_regularization", type=click.BOOL, required=False, default=True,
               help="whether to apply the diffuse render regularization."
@@ -175,7 +175,7 @@ def main(**kwargs) -> None:
                 config.grid_world_size
             ),
         }
-    if config.use_softplus_field:
+    elif config.use_softplus_field:
         vox_grid_density_activations_dict = {
             "density_preactivation": torch.nn.Identity(),
             "density_postactivation": torch.nn.Softplus(),
